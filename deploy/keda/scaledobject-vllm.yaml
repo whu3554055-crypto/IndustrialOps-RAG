@@ -1,0 +1,21 @@
+# KEDA ScaledObject — vLLM（dev: maxReplicas=1；生产改 values）
+# 安装: helm repo add kedacore https://kedacore.github.io/charts && helm install keda kedacore/keda -n keda --create-namespace
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: ior-vllm-scaler
+  namespace: industrial-ops
+spec:
+  scaleTargetRef:
+    name: ior-industrial-ops-rag-vllm
+  minReplicaCount: 1
+  maxReplicaCount: 1
+  pollingInterval: 30
+  cooldownPeriod: 300
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://ior-prometheus:9090
+        metricName: http_requests_waiting
+        threshold: "5"
+        query: sum(vllm_num_requests_waiting) # 需与 ServiceMonitor 指标名对齐

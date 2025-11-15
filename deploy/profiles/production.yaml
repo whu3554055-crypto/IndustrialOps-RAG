@@ -1,0 +1,43 @@
+# 生产档 — 组件清单与 dev 相同，仅调高资源与副本
+
+profile: production
+
+cluster:
+  node_count: 3  # 建议
+
+gpu:
+  count: 1
+  vram_gb: 24  # 示例节点
+  mutual_exclusive_gpu: false  # 大显存节点可并行评测
+
+services:
+  milvus:
+    enabled: true
+    limits_memory: 8Gi
+  opensearch:
+    enabled: true
+    limits_memory: 4Gi
+  postgresql:
+    enabled: true
+    limits_memory: 2Gi
+
+llm:
+  primary: Qwen/Qwen2.5-7B-Instruct-AWQ
+  active_backend: vllm
+  backends:
+    vllm:
+      enabled: true
+      gpu_memory_utilization: 0.90
+      max_model_len: 8192
+      max_num_seqs: 16
+    tensorrt_llm:
+      enabled: true
+      max_batch_size: 8
+
+keda:
+  enabled: true
+  vllm:
+    min_replicas: 1
+    max_replicas: 10
+
+# 完整字段以 dev-single-node.yaml 为模板合并部署

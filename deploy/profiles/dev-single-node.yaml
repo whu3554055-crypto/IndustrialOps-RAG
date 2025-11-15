@@ -1,0 +1,135 @@
+# IndustrialOps-RAG — 单机开发档（架构全量，数值压缩）
+# 单一事实来源；Helm values 应与此对齐
+
+profile: dev-single-node
+
+cluster:
+  node_count: 1
+  kubernetes_distribution: k3d  # kind | k3d | minikube
+
+gpu:
+  count: 1
+  vram_gb: 6
+  mutual_exclusive_gpu: true  # vLLM 与 TensorRT-LLM 不同时占 GPU
+
+services:
+  milvus:
+    enabled: true
+    requests_memory: 1Gi
+    limits_memory: 2Gi
+  opensearch:
+    enabled: true
+    requests_memory: 512Mi
+    limits_memory: 1Gi
+    java_opts: "-Xms512m -Xmx512m"
+    discovery_type: single-node
+  postgresql:
+    enabled: true
+    requests_memory: 256Mi
+    limits_memory: 512Mi
+  redis:
+    enabled: true
+    requests_memory: 128Mi
+    limits_memory: 256Mi
+  minio:
+    enabled: true
+    requests_memory: 256Mi
+    limits_memory: 512Mi
+  prometheus:
+    enabled: true
+    requests_memory: 256Mi
+    limits_memory: 512Mi
+  grafana:
+    enabled: true
+    requests_memory: 128Mi
+    limits_memory: 256Mi
+
+llm:
+  primary: Qwen/Qwen2.5-7B-Instruct-AWQ
+  active_backend: vllm  # vllm | tensorrt_llm | api
+  backends:
+    vllm:
+      enabled: true
+      port: 8000
+      quantization: awq
+      gpu_memory_utilization: 0.88
+      max_model_len: 4096
+      max_num_seqs: 2
+      max_num_batched_tokens: 2048
+      enforce_eager: false
+    tensorrt_llm:
+      enabled: true
+      port: 8001
+      max_batch_size: 1
+      max_input_len: 2048
+      max_output_len: 1024
+    api:
+      enabled: false
+      base_url: ""
+      model: ""
+
+embedding:
+  model: BAAI/bge-m3
+  device: cpu
+  batch_size: 8
+
+rerank:
+  model: BAAI/bge-reranker-v2-m3
+  device: cpu
+  top_n: 5
+
+retrieval:
+  vector_top_k: 20
+  bm25_top_k: 20
+  rrf_k: 60
+  rerank_top_n: 5
+  llamaindex_modes:
+    - vector
+    - bm25
+    - summary
+    - tree
+    - graph
+    - router
+    - sub_question
+
+agent:
+  max_history_turns: 3
+  self_check_enabled: true
+  refuse_on_low_confidence: true
+
+finetune:
+  base_model: Qwen/Qwen2.5-7B-Instruct
+  dataset_max_samples: 5000
+  qlora_r: 8
+  qlora_alpha: 16
+  max_seq_length: 2048
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 16
+  gradient_checkpointing: true
+  bnb_4bit: true
+
+keda:
+  enabled: true
+  vllm:
+    min_replicas: 1
+    max_replicas: 1
+    polling_interval: 30
+    cooldown_period: 300
+    # 生产 overlay 改为 max_replicas: 10+
+  scaled_job:
+    ingest_parallelism: 1
+    ragas_parallelism: 1
+
+startup_order:
+  - postgresql
+  - redis
+  - minio
+  - milvus
+  - opensearch
+  - ingest_job
+  - vllm
+  - gateway
+  - prometheus
+  - grafana
+  # tensorrt_llm: 手动切换 active_backend 后启动
+  # ragas_cronjob / train_job: 按需

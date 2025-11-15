@@ -1,0 +1,82 @@
+# 默认 values — 生产向；单机请用 -f values-dev-single-node.yaml
+
+global:
+  profile: production
+  language: zh
+
+gateway:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: industrial-ops-rag/gateway
+    tag: "0.1.0"
+  service:
+    port: 8080
+
+agent:
+  enabled: true
+
+milvus:
+  enabled: true
+
+opensearch:
+  enabled: true
+
+postgresql:
+  enabled: true
+
+redis:
+  enabled: true
+
+minio:
+  enabled: true
+
+vllm:
+  enabled: true
+  replicaCount: 1
+  model: Qwen/Qwen2.5-7B-Instruct-AWQ
+  quantization: awq
+  gpuMemoryUtilization: 0.90
+  maxModelLen: 8192
+  maxNumSeqs: 8
+
+tensorrtLlm:
+  enabled: true
+  replicaCount: 0  # 默认不占用 GPU；切换 activeBackend 后 scale
+  model: Qwen/Qwen2.5-7B-Instruct-AWQ
+  maxBatchSize: 4
+
+llmRouter:
+  activeBackend: vllm
+
+embedding:
+  device: cpu
+  model: BAAI/bge-m3
+
+rerank:
+  device: cpu
+  model: BAAI/bge-reranker-v2-m3
+
+keda:
+  enabled: true
+  vllm:
+    minReplicas: 1
+    maxReplicas: 10
+
+monitoring:
+  prometheus:
+    enabled: true
+  grafana:
+    enabled: true
+
+ingest:
+  cronJob:
+    enabled: false
+
+evaluation:
+  ragasCronJob:
+    enabled: false
+
+finetune:
+  trainJob:
+    enabled: false

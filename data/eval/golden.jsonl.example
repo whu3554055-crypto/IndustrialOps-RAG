@@ -1,0 +1,2 @@
+{"question": "故障码 E1024 如何处理？", "ground_truth": "过温保护：停机冷却、检查冷却水路、复位前确认温度。", "doc_ids": ["manual-xk200"], "category": "fault_code"}
+{"question": "泵体异响可能原因？", "ground_truth": "轴承磨损、气蚀、对中不良等，需结合润滑与入口压力排查。", "doc_ids": ["sop-pump-01"], "category": "symptom"}

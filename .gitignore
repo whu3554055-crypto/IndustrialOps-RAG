@@ -1,0 +1,80 @@
+# ── Secrets & local config ──
+.env
+.env.*
+!.env.example
+
+# ── Python ──
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+*.egg-info/
+dist/
+build/
+*.egg
+pip-wheel-metadata/
+__pypackages__/
+
+# ── Data & models (IndustrialOps-RAG) ──
+# 原始语料与解析产物（保留目录占位）
+data/raw/**
+data/processed/**
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+# 评测集：保留 example 模板，忽略本地 golden
+data/eval/golden.jsonl
+data/eval/*.jsonl
+!data/eval/golden.jsonl.example
+!data/eval/.gitkeep
+
+models/
+*.gguf
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.onnx
+*.engine
+*.trt
+
+# HuggingFace / 训练缓存（若设 HF_HOME 于项目内）
+.cache/
+huggingface/
+
+# ── ML / eval artifacts ──
+wandb/
+mlruns/
+tensorboard/
+lightning_logs/
+checkpoints/
+outputs/
+
+# ── Docker / K8s local ──
+*.log
+docker-compose.override.yml
+.kube/
+deploy/helm/**/charts/
+
+# ── IDE & OS ──
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+
+# ── Logs & reports ──
+reports/*
+!reports/.gitkeep

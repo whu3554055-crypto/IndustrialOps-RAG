@@ -1,0 +1,94 @@
+# 对齐 deploy/profiles/dev-single-node.yaml
+
+global:
+  profile: dev-single-node
+
+gateway:
+  replicaCount: 1
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 250m
+    limits:
+      memory: 512Mi
+      cpu: "1"
+
+milvus:
+  enabled: true
+  resources:
+    limits:
+      memory: 2Gi
+
+opensearch:
+  enabled: true
+  resources:
+    limits:
+      memory: 1Gi
+  javaOpts: "-Xms512m -Xmx512m"
+
+postgresql:
+  resources:
+    limits:
+      memory: 512Mi
+
+redis:
+  resources:
+    limits:
+      memory: 256Mi
+
+minio:
+  resources:
+    limits:
+      memory: 512Mi
+
+vllm:
+  enabled: true
+  replicaCount: 1
+  gpuMemoryUtilization: 0.88
+  maxModelLen: 4096
+  maxNumSeqs: 2
+  maxNumBatchedTokens: 2048
+  resources:
+    limits:
+      nvidia.com/gpu: 1
+
+tensorrtLlm:
+  enabled: true
+  replicaCount: 0
+  maxBatchSize: 1
+  maxInputLen: 2048
+  maxOutputLen: 1024
+
+llmRouter:
+  activeBackend: vllm
+  mutualExclusiveGpu: true
+
+keda:
+  enabled: true
+  vllm:
+    minReplicas: 1
+    maxReplicas: 1
+
+monitoring:
+  prometheus:
+    enabled: true
+    resources:
+      limits:
+        memory: 512Mi
+  grafana:
+    enabled: true
+    resources:
+      limits:
+        memory: 256Mi
+
+ingest:
+  cronJob:
+    enabled: false
+
+evaluation:
+  ragasCronJob:
+    enabled: false
+
+finetune:
+  trainJob:
+    enabled: false

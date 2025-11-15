@@ -1,0 +1,17 @@
+apiVersion: v2
+name: industrial-ops-rag
+description: Industrial equipment ops knowledge RAG — full stack Helm umbrella
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - rag
+  - milvus
+  - vllm
+  - llama-index
+  - langchain
+maintainers:
+  - name: industrial-ops-rag
+
+dependencies: []
+# 子 chart 可后续拆分：milvus, opensearch, vllm, gateway, keda
