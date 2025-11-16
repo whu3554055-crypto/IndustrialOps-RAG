@@ -79,20 +79,37 @@ huggingface-cli download BAAI/bge-reranker-v2-m3 --local-dir d:\repo\RAG\models\
 
 **省 token**：下载进度在本地看；找 Agent 时只说「下完了」或「报错最后一行」。
 
-### 3.4 启动 vLLM（7B-AWQ，对齐 profile）
+### 3.4 启动 vLLM（7B-AWQ，RTX 3060 6GB 实测）
+
+> **Windows 勿 `pip install vllm`**（官方不支持；且 `latest` 镜像需 CUDA 13 驱动 ≥580）。  
+> 本机驱动 546.x → 用 **Docker + 固定 CUDA 12 tag**（`v0.6.6`）。  
+> 下列参数在 6GB 显存上**已验证可跑**；与 `dev-single-node.yaml` 的 4096 context 不同，属单机压显存调优。
+
+**Step 1 — 验证 Docker GPU（CUDA 12）**
 
 ```powershell
-.\.venv\Scripts\activate
-pip install vllm
-# GPU 占用期间不要同时跑 QLoRA / TRT build
+docker run --rm --gpus all nvidia/cuda:12.3.0-base-ubuntu22.04 nvidia-smi
+```
 
-vllm serve d:\repo\RAG\models\Qwen2.5-7B-Instruct-AWQ `
-  --quantization awq `
-  --gpu-memory-utilization 0.88 `
-  --max-model-len 4096 `
-  --max-num-seqs 2 `
-  --max-num-batched-tokens 2048 `
-  --port 8000
+**Step 2 — 拉取镜像（仅首次，体积大）**
+
+```powershell
+docker pull vllm/vllm-openai:v0.6.6
+```
+
+**Step 3 — 启动（GPU 占用期间不要同时跑 QLoRA / TRT build）**
+
+```powershell
+docker run --gpus all --ipc=host -p 8000:8000 `
+  -v d:/repo/RAG/models:/models `
+  vllm/vllm-openai:v0.6.6 `
+  --model /models/Qwen2.5-7B-Instruct-AWQ `
+  --quantization awq_marlin `
+  --gpu-memory-utilization 0.95 `
+  --max-model-len 512 `
+  --max-num-seqs 1 `
+  --max-num-batched-tokens 512 `
+  --cpu-offload-gb 2
 ```
 
 另开终端测一条：
@@ -100,6 +117,10 @@ vllm serve d:\repo\RAG\models\Qwen2.5-7B-Instruct-AWQ `
 ```powershell
 curl http://localhost:8000/v1/models
 ```
+
+**OOM 时**：先降 `--gpu-memory-utilization`（如 `0.88`），或再降 `--max-model-len` / `--max-num-batched-tokens`。
+
+**驱动升级后**（≥580）：可改用 `vllm/vllm-openai:latest`；生产仍建议固定 tag。
 
 **省 token**：vLLM 启动日志 **不要**贴满；OOM 只贴含 `CUDA out of memory` 的 ~15 行。
 
