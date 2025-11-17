@@ -140,18 +140,18 @@ curl http://localhost:8080/v1/health
 
 ```powershell
 cd d:\repo\RAG
-# 把 PDF/MD 放进 data\raw\
 .\.venv\Scripts\activate
-python pipelines/ingest/run_ingest.py --input data/raw --batch-size 10
+# 默认 ingest data/raw（含 samples/ 下 3 篇示例 MD）；自有语料可放入 data\raw\
+python pipelines/ingest/run_ingest.py --input data/raw --batch-size 8
 ```
 
-实现完成后才有完整逻辑；此前仅 scaffold。输出重定向省 token：
+输出重定向省 token：
 
 ```powershell
 python pipelines/ingest/run_ingest.py --input data/raw 2>&1 | Tee-Object -FilePath reports\ingest_last.log
 ```
 
-找 Agent：「`ingest_last.log` 最后 30 行 + 现象一句话」。
+成功时应看到 `done: N chunks indexed`。找 Agent：「`ingest_last.log` 最后 30 行 + 现象一句话」。
 
 ### 3.7 RAGAS 评测（实现后，你代劳跑）
 
