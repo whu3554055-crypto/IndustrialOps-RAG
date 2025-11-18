@@ -3,14 +3,7 @@
 from __future__ import annotations
 
 from opensearchpy import OpenSearch
-from pymilvus import (
-    Collection,
-    CollectionSchema,
-    DataType,
-    FieldSchema,
-    connections,
-    utility,
-)
+from pymilvus import DataType, MilvusClient
 from sentence_transformers import SentenceTransformer
 
 from apps.config import ROOT, get_settings
@@ -31,7 +24,11 @@ class Embedder:
 
     @property
     def dimension(self) -> int:
-        dim = self._model.get_sentence_embedding_dimension()
+        get_dim = getattr(self._model, "get_embedding_dimension", None)
+        if get_dim is not None:
+            dim = get_dim()
+        else:
+            dim = self._model.get_sentence_embedding_dimension()
         if dim is None:
             raise RuntimeError("Could not determine embedding dimension")
         return dim
@@ -49,46 +46,52 @@ class Embedder:
 class MilvusIndexer:
     def __init__(self, collection_name: str, dim: int) -> None:
         s = get_settings()
-        connections.connect(alias="default", host=s.milvus_host, port=str(s.milvus_port))
         self._collection_name = collection_name
         self._dim = dim
+        self._client = MilvusClient(uri=f"http://{s.milvus_host}:{s.milvus_port}")
 
     def recreate(self) -> None:
-        if utility.has_collection(self._collection_name):
-            utility.drop_collection(self._collection_name)
-        schema = CollectionSchema(
-            fields=[
-                FieldSchema(name="chunk_id", dtype=DataType.VARCHAR, is_primary=True, max_length=256),
-                FieldSchema(name="doc_id", dtype=DataType.VARCHAR, max_length=256),
-                FieldSchema(name="source_file", dtype=DataType.VARCHAR, max_length=512),
-                FieldSchema(name="title", dtype=DataType.VARCHAR, max_length=256),
-                FieldSchema(name="chunk_index", dtype=DataType.INT64),
-                FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=8192),
-                FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=self._dim),
-            ],
-            description="IndustrialOps-RAG document chunks",
+        if self._client.has_collection(self._collection_name):
+            self._client.drop_collection(self._collection_name)
+
+        schema = MilvusClient.create_schema(auto_id=False, enable_dynamic_field=False)
+        schema.add_field(
+            field_name="chunk_id", datatype=DataType.VARCHAR, is_primary=True, max_length=256
         )
-        collection = Collection(name=self._collection_name, schema=schema)
-        collection.create_index(
+        schema.add_field(field_name="doc_id", datatype=DataType.VARCHAR, max_length=256)
+        schema.add_field(field_name="source_file", datatype=DataType.VARCHAR, max_length=512)
+        schema.add_field(field_name="title", datatype=DataType.VARCHAR, max_length=256)
+        schema.add_field(field_name="chunk_index", datatype=DataType.INT64)
+        schema.add_field(field_name="text", datatype=DataType.VARCHAR, max_length=8192)
+        schema.add_field(field_name="embedding", datatype=DataType.FLOAT_VECTOR, dim=self._dim)
+
+        index_params = self._client.prepare_index_params()
+        index_params.add_index(
             field_name="embedding",
-            index_params={"index_type": "AUTOINDEX", "metric_type": "COSINE"},
+            index_type="AUTOINDEX",
+            metric_type="COSINE",
+        )
+        self._client.create_collection(
+            collection_name=self._collection_name,
+            schema=schema,
+            index_params=index_params,
         )
 
     def insert(self, chunks: list[Chunk], vectors: list[list[float]]) -> None:
-        collection = Collection(self._collection_name)
-        collection.insert(
-            [
-                [c.chunk_id for c in chunks],
-                [c.doc_id for c in chunks],
-                [c.source_file for c in chunks],
-                [c.title for c in chunks],
-                [c.chunk_index for c in chunks],
-                [c.text for c in chunks],
-                vectors,
-            ]
-        )
-        collection.flush()
-        collection.load()
+        rows = [
+            {
+                "chunk_id": chunk.chunk_id,
+                "doc_id": chunk.doc_id,
+                "source_file": chunk.source_file,
+                "title": chunk.title,
+                "chunk_index": chunk.chunk_index,
+                "text": chunk.text,
+                "embedding": vector,
+            }
+            for chunk, vector in zip(chunks, vectors, strict=True)
+        ]
+        self._client.insert(collection_name=self._collection_name, data=rows)
+        self._client.load_collection(self._collection_name)
 
 
 class OpenSearchIndexer:
