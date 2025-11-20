@@ -70,11 +70,11 @@ docker compose -f deploy/compose/docker-compose.yml ps
 ```powershell
 .\.venv\Scripts\activate
 pip install -U "huggingface_hub[cli]"
-# 需先在 hf.co 设置 token: huggingface-cli login
+# 需先在 hf.co 设置 token: hf auth login
 
-huggingface-cli download Qwen/Qwen2.5-7B-Instruct-AWQ --local-dir d:\repo\RAG\models\Qwen2.5-7B-Instruct-AWQ
-huggingface-cli download BAAI/bge-m3 --local-dir d:\repo\RAG\models\bge-m3
-huggingface-cli download BAAI/bge-reranker-v2-m3 --local-dir d:\repo\RAG\models\bge-reranker-v2-m3
+hf download Qwen/Qwen2.5-7B-Instruct-AWQ --local-dir d:\repo\RAG\models\Qwen2.5-7B-Instruct-AWQ
+hf download BAAI/bge-m3 --local-dir d:\repo\RAG\models\bge-m3
+hf download BAAI/bge-reranker-v2-m3 --local-dir d:\repo\RAG\models\bge-reranker-v2-m3
 ```
 
 **省 token**：下载进度在本地看；找 Agent 时只说「下完了」或「报错最后一行」。
