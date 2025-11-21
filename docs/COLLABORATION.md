@@ -153,6 +153,14 @@ python pipelines/ingest/run_ingest.py --input data/raw 2>&1 | Tee-Object -FilePa
 
 成功时应看到 `done: N chunks indexed`。找 Agent：「`ingest_last.log` 最后 30 行 + 现象一句话」。
 
+**M1 验收（10 题 Top5，ingest 后执行）：**
+
+```powershell
+python scripts/verify_m1.py --write-evolution
+```
+
+通过：向量与 BM25 **各自** ≥8/10 命中。详情见 `reports/m1_verify.json`；聊天只贴终端汇总行。
+
 ### 3.7 RAGAS 评测（实现后，你代劳跑）
 
 ```powershell
