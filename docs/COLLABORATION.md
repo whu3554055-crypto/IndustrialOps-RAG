@@ -161,6 +161,26 @@ python scripts/verify_m1.py --write-evolution
 
 通过：向量与 BM25 **各自** ≥8/10 命中。详情见 `reports/m1_verify.json`；聊天只贴终端汇总行。
 
+### 3.6.1 M2 检索验收
+
+```powershell
+# Gateway 自测（需 uvicorn 已起）
+# PowerShell 勿用 bash 式 \" 转义；推荐 Invoke-RestMethod：
+Invoke-RestMethod -Method Post -Uri http://localhost:8080/v1/search `
+  -ContentType "application/json; charset=utf-8" `
+  -Body '{"query":"P-101 出口压力正常范围","mode":"hybrid_rerank","top_k":5}'
+
+# 或 curl.exe（JSON 用单引号包住整段）：
+curl.exe -X POST "http://localhost:8080/v1/search" `
+  -H "Content-Type: application/json" `
+  -d '{"query":"P-101 出口压力正常范围","mode":"hybrid_rerank","top_k":5}'
+
+# 10 题 golden 对比 vector / bm25 / hybrid / hybrid_rerank / router
+python scripts/verify_m2.py --write-evolution
+```
+
+通过：`hybrid_rerank` Recall@5 ≥ 8/10。报告见 `reports/m2_verify.json`。
+
 ### 3.7 RAGAS 评测（实现后，你代劳跑）
 
 ```powershell

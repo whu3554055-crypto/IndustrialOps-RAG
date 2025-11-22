@@ -12,5 +12,6 @@
 | 2026-05-31 | 不从零 fork RAGFlow | 吸收 deepdoc 思路，代码自研可控 |
 | 2026-05-31 | Windows 本地 vLLM 用 Docker `v0.6.6` | 原生 pip 不支持；`latest` 需 CUDA 13 驱动，546.x 用 cu12 tag |
 | 2026-05-31 | 6GB 本机 vLLM 用 awq_marlin + cpu-offload | RTX 3060 实测：`max-model-len 512`、`cpu-offload-gb 2`；profile 4096 留 K8s |
+| 2026-05-31 | Embedding/Rerank 分时释放内存 | 16GB RAM 上 bge-m3 与 reranker 不可同驻；rerank 前 `release_embedder()` |
 
 <!-- 新决策追加在表末 -->
