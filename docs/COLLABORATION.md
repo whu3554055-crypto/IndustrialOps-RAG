@@ -163,21 +163,41 @@ python scripts/verify_m1.py --write-evolution
 
 ### 3.6.1 M2 检索验收
 
-```powershell
-# Gateway 自测（需 uvicorn 已起）
-# PowerShell 勿用 bash 式 \" 转义；推荐 Invoke-RestMethod：
-Invoke-RestMethod -Method Post -Uri http://localhost:8080/v1/search `
-  -ContentType "application/json; charset=utf-8" `
-  -Body '{"query":"P-101 出口压力正常范围","mode":"hybrid_rerank","top_k":5}'
+Gateway 自测（需 uvicorn 已起）。**勿用 `Invoke-RestMethod`**：Windows PowerShell 5.x 对中文 JSON 请求/响应易乱码。用 **curl** 或 **Python**：
 
-# 或 curl.exe（JSON 用单引号包住整段）：
+```powershell
+# 方式 A — curl（推荐，终端直接可读）
+@'
+{"query":"P-101 出口压力正常范围","mode":"hybrid_rerank","top_k":5}
+'@ | Set-Content -Path reports\_search_body.json -Encoding utf8NoBOM
 curl.exe -X POST "http://localhost:8080/v1/search" `
-  -H "Content-Type: application/json" `
-  -d '{"query":"P-101 出口压力正常范围","mode":"hybrid_rerank","top_k":5}'
+  -H "Content-Type: application/json; charset=utf-8" `
+  --data-binary "@reports\_search_body.json"
+
+# 方式 B — Python 一行（.venv 已激活时）
+python -c "import json,urllib.request as u; q='P-101 出口压力正常范围'; b=json.dumps({'query':q,'mode':'hybrid_rerank','top_k':5},ensure_ascii=False).encode(); print(u.urlopen(u.Request('http://localhost:8080/v1/search',data=b,headers={'Content-Type':'application/json'})).read().decode())"
 
 # 10 题 golden 对比 vector / bm25 / hybrid / hybrid_rerank / router
 python scripts/verify_m2.py --write-evolution
 ```
+
+若报 `WinError 10055`（套接字缓冲区满）：多为反复 curl/uvicorn 后 Windows 端口耗尽。先释放再重跑：
+
+```powershell
+Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
+Start-Sleep -Seconds 30
+python scripts/verify_m2.py --write-evolution
+```
+
+仍失败则重启 Windows 后再跑。`coroutine 'run_all' was never awaited` 是连带警告，可忽略。
+
+```powershell
+Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
+Start-Sleep -Seconds 30
+python scripts/verify_m2.py --write-evolution
+```
+
+仍失败则重启 Windows 后再跑。`coroutine 'run_all' was never awaited` 是连带警告，可忽略。
 
 通过：`hybrid_rerank` Recall@5 ≥ 8/10。报告见 `reports/m2_verify.json`。
 
