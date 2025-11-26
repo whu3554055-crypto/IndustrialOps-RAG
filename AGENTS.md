@@ -21,4 +21,4 @@
 
 ## 当前状态
 
-M0 scaffold 已完成。下一步：**M1 ingest + 索引**（建议用户本地 §3.2–3.6，Agent 小步改代码 + 小结模式）。
+M0 scaffold 已完成。下一步：**M1 ingest + 索引**（建议用户本地 §3.2–3.7，Agent 小步改代码 + 小结模式）。M0 若未做 K8s：先跑 [COLLABORATION.md](docs/COLLABORATION.md) §3.3。

@@ -44,8 +44,10 @@
 
 ## 本地集群
 
+完整步骤见 [docs/COLLABORATION.md](../docs/COLLABORATION.md) §3.3。
+
 ```bash
 # 示例：k3d 单节点（执行前确认 Docker/WSL2 资源）
-k3d cluster create industrial-rag --agents 1
+k3d cluster create industrial-rag --agents 1 --gpus 1
 kubectl cluster-info
 ```

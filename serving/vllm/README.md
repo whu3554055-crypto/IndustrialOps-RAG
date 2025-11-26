@@ -7,7 +7,7 @@
 勿 `pip install vllm`。`latest` 镜像需 CUDA 13（驱动 ≥580）；本机用固定 **CUDA 12** tag：
 
 ```powershell
-# 须先下载模型 — 见 docs/COLLABORATION.md §3.3
+# 须先下载模型 — 见 docs/COLLABORATION.md §3.4
 docker pull vllm/vllm-openai:v0.6.6
 
 docker run --gpus all --ipc=host -p 8000:8000 `

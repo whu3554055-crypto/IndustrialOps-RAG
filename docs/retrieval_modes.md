@@ -35,4 +35,4 @@
 | `data/eval/golden.jsonl` | RAGAS faithfulness（需 `ground_truth`，见 `.example`） | 待构建 |
 
 - Recall@5 / P95：本地跑 `python scripts/verify_m2.py --write-evolution`，报告见 `reports/m2_verify.json`。
-- RAGAS faithfulness：待 M3+ Agent 管道与 `pipelines/evaluation/run_ragas.py` 实现后，构建 `golden.jsonl` 再跑 §3.7 命令填列。
+- RAGAS faithfulness：待 M3+ Agent 管道与 `pipelines/evaluation/run_ragas.py` 实现后，构建 `golden.jsonl` 再跑 §3.8 命令填列。

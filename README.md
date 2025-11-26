@@ -39,15 +39,24 @@ cp .env.example .env
 # 3. 中间件（Compose）
 docker compose -f deploy/compose/docker-compose.yml up -d
 
-# 4. Gateway（开发）
+# 4. K8s 全架构（M0 步骤 3，详见 COLLABORATION §3.3）
+k3d cluster create industrial-rag --agents 1 --gpus 1
+helm upgrade --install ior ./deploy/helm/industrial-ops-rag \
+  -f ./deploy/helm/industrial-ops-rag/values-dev-single-node.yaml \
+  -n industrial-ops --create-namespace
+
+# 5. Gateway（开发）
 uvicorn apps.gateway.main:app --reload --host 0.0.0.0 --port 8080
 ```
 
-**高对话 token 的 Agent 操作** — 见 [docs/COLLABORATION.md](docs/COLLABORATION.md) §2；**模型下载等建议你自己跑** §3。
+**高对话 token 的 Agent 操作** — 见 [docs/COLLABORATION.md](docs/COLLABORATION.md) §2；**模型下载等建议你自己跑** §3.4。
 
 ## K8s（全架构）
 
+完整步骤（含 GPU 透传、验收）见 [docs/COLLABORATION.md](docs/COLLABORATION.md) §3.3。快速命令：
+
 ```bash
+k3d cluster create industrial-rag --agents 1 --gpus 1
 helm upgrade --install ior ./deploy/helm/industrial-ops-rag \
   -f ./deploy/helm/industrial-ops-rag/values-dev-single-node.yaml \
   -n industrial-ops --create-namespace

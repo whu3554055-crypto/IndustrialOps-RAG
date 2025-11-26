@@ -65,7 +65,50 @@ docker compose -f deploy/compose/docker-compose.yml ps
 
 **省 token**：只回复 `ps` 里 unhealthy 的行，不要贴 `docker compose logs` 全文（可先本地 `logs --tail 50`）。
 
-### 3.3 下载模型（HF）
+### 3.3 K8s 集群 + Helm（M0 步骤 3）
+
+对应 [PROJECT_PLAN.md](./PROJECT_PLAN.md) §9 第 3 步；Chart 细节见 [deploy/helm/industrial-ops-rag/README.md](../deploy/helm/industrial-ops-rag/README.md)。
+
+**前提**：Docker 可用；WSL2 内跑 k3d 时建议 RAM ≥12GB。
+
+**Step 1 — 创建 k3d 集群**
+
+```powershell
+k3d cluster create industrial-rag --agents 1 --gpus 1
+kubectl cluster-info
+```
+
+**Step 2 — GPU 透传（RTX / WSL2）**
+
+若 vLLM Pod 卡在 `Pending`（无 `nvidia.com/gpu`），在 **WSL2 Ubuntu** 内安装 device plugin：
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/v0.14.5/nvidia-device-plugin.yml
+kubectl -n kube-system rollout status daemonset/nvidia-device-plugin-daemonset
+```
+
+Windows 原生 Docker Desktop + k3d 时 `--gpus 1` 行为因版本而异；M0 建议在 WSL2 内执行本节。
+
+**Step 3 — 安装 Helm chart**
+
+```powershell
+cd d:\repo\RAG
+helm upgrade --install ior ./deploy/helm/industrial-ops-rag `
+  -f ./deploy/helm/industrial-ops-rag/values-dev-single-node.yaml `
+  -n industrial-ops --create-namespace
+```
+
+**Step 4 — 验收（M0）**
+
+```powershell
+kubectl -n industrial-ops get pods
+```
+
+目标：分时启服后 `kubectl get pods` 全绿；启服顺序见 `deploy/profiles/dev-single-node.yaml` → `startup_order`。镜像未本地 build 时可能 `ImagePullBackOff`，见 Chart README。
+
+**省 token**：排障只贴 `kubectl describe pod <name>` 的 Events + `logs --tail=40`，勿贴全文。
+
+### 3.4 下载模型（HF）
 
 ```powershell
 .\.venv\Scripts\activate
@@ -79,7 +122,7 @@ hf download BAAI/bge-reranker-v2-m3 --local-dir d:\repo\RAG\models\bge-reranker-
 
 **省 token**：下载进度在本地看；找 Agent 时只说「下完了」或「报错最后一行」。
 
-### 3.4 启动 vLLM（7B-AWQ，RTX 3060 6GB 实测）
+### 3.5 启动 vLLM（7B-AWQ，RTX 3060 6GB 实测）
 
 > **Windows 勿 `pip install vllm`**（官方不支持；且 `latest` 镜像需 CUDA 13 驱动 ≥580）。  
 > 本机驱动 546.x → 用 **Docker + 固定 CUDA 12 tag**（`v0.6.6`）。  
@@ -124,7 +167,7 @@ curl http://localhost:8000/v1/models
 
 **省 token**：vLLM 启动日志 **不要**贴满；OOM 只贴含 `CUDA out of memory` 的 ~15 行。
 
-### 3.5 Gateway（自测）
+### 3.6 Gateway（自测）
 
 ```powershell
 cd d:\repo\RAG
@@ -136,7 +179,7 @@ uvicorn apps.gateway.main:app --host 0.0.0.0 --port 8080
 curl http://localhost:8080/v1/health
 ```
 
-### 3.6 小样本 Ingest（≤20 文档，你代劳）
+### 3.7 小样本 Ingest（≤20 文档，你代劳）
 
 ```powershell
 cd d:\repo\RAG
@@ -161,7 +204,7 @@ python scripts/verify_m1.py --write-evolution
 
 通过：向量与 BM25 **各自** ≥8/10 命中。详情见 `reports/m1_verify.json`；聊天只贴终端汇总行。
 
-### 3.6.1 M2 检索验收
+### 3.7.1 M2 检索验收
 
 Gateway 自测（需 uvicorn 已起）。**勿用 `Invoke-RestMethod`**：Windows PowerShell 5.x 对中文 JSON 请求/响应易乱码。用 **curl** 或 **Python**：
 
@@ -201,7 +244,7 @@ python scripts/verify_m2.py --write-evolution
 
 通过：`hybrid_rerank` Recall@5 ≥ 8/10。报告见 `reports/m2_verify.json`。
 
-### 3.7 RAGAS 评测（实现后，你代劳跑）
+### 3.8 RAGAS 评测（实现后，你代劳跑）
 
 ```powershell
 copy data\eval\golden.jsonl.example data\eval\golden.jsonl
@@ -210,7 +253,7 @@ python pipelines/evaluation/run_ragas.py --golden data/eval/golden.jsonl --outpu
 
 **省 token**：把 `reports/ragas_report.json` 留在磁盘；聊天只贴 **汇总 5 个指标数字**。
 
-### 3.8 QLoRA 训练（实现后，训练前关掉 vLLM）
+### 3.9 QLoRA 训练（实现后，训练前关掉 vLLM）
 
 ```powershell
 # 先停 vLLM 进程释放 GPU
@@ -218,18 +261,6 @@ python pipelines/finetune/train_qlora.py --dataset data/processed/sft.jsonl --ou
 ```
 
 **省 token**：训练曲线用本地 tensorboard/wandb；别让 Agent 解读 200 行 epoch log。
-
-### 3.9 K8s / Helm（可选，日志本地化）
-
-```powershell
-k3d cluster create industrial-rag --agents 1
-kubectl get pods -A
-helm upgrade --install ior ./deploy/helm/industrial-ops-rag `
-  -f ./deploy/helm/industrial-ops-rag/values-dev-single-node.yaml `
-  -n industrial-ops --create-namespace
-```
-
-**省 token**：`kubectl describe pod <name>` 的 Events 段 + `logs --tail=40` 即可。
 
 ### 3.10 查看 profile（无需 Agent）
 
@@ -249,7 +280,7 @@ python scripts/load_profile.py dev-single-node
 | 即将读多个文件 | 「将读 N 个文件，约 X KB 上下文；可改为你本地跑命令，我只改 1 个文件」 |
 | 即将跑长命令 | 「输出将写入 `reports/`，聊天只回摘要，是否同意？」 |
 | 测试/ingest 失败 | 「请贴最后 30 行或 `reports/*.log` 路径，勿贴全文」 |
-| 评测/对比多配置 | 「矩阵评测建议你本地跑 §3.7；我根据 JSON 摘要改代码」 |
+| 评测/对比多配置 | 「矩阵评测建议你本地跑 §3.8；我根据 JSON 摘要改代码」 |
 | 探索大型外仓 | 「通读 RAGFlow 极费 token；改为指定文件路径或官方文档链接」 |
 | 单次回复变长 | 「已超 200 字，详细内容在 `docs/...`，需要展开哪一节？」 |
 | 线程已很长 | 「建议新开会话，携带 `AGENTS.md` + 当前 M 编号」 |
@@ -286,7 +317,7 @@ python scripts/load_profile.py dev-single-node
 
 | 事项 | 对话 token | 本机成本 |
 |------|------------|----------|
-| 下载 7B 模型 | 低（你代劳 §3.3） | 磁盘/带宽 |
+| 下载 7B 模型 | 低（你代劳 §3.4） | 磁盘/带宽 |
 | vLLM 常开 | 低 | GPU/电 |
 | Agent 实现 M1 全模块 | **高** | 低 |
 | 你跑 ingest + Agent 改 1 文件 | **低** | 中 |

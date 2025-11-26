@@ -115,5 +115,5 @@
 
 1. 复制 `.env.example` → `.env`  
 2. `docker compose -f deploy/compose/docker-compose.yml up -d`（本地开发子集）  
-3. 创建 k3d 集群，安装 Helm chart（见 `deploy/helm/industrial-ops-rag/README.md`）  
-4. 拉取模型等见 [COLLABORATION.md](./COLLABORATION.md) §3（用户代劳省对话 token）  
+3. 创建 k3d 集群，安装 Helm chart（见 [COLLABORATION.md](./COLLABORATION.md) §3.3；Chart 细节见 `deploy/helm/industrial-ops-rag/README.md`）  
+4. 拉取模型等见 [COLLABORATION.md](./COLLABORATION.md) §3.4（用户代劳省对话 token）  
