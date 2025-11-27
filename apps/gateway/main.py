@@ -1,8 +1,9 @@
 """FastAPI Gateway — 会话、问答、反馈、健康检查."""
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+from apps.agent.pipeline import run_agentic_rag
 from apps.config import get_settings
 from apps.retrieval.langchain.hybrid_chain import retrieve_context
 from apps.retrieval.llamaindex.graph_engine import query_graph
@@ -76,11 +77,18 @@ async def health() -> dict:
 
 @app.post("/v1/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest) -> ChatResponse:
-    # TODO M3: 接入 apps.agent.pipeline
+    try:
+        result = await run_agentic_rag(req.session_id, req.query)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Agent pipeline failed: {exc}",
+        ) from exc
     return ChatResponse(
-        answer=f"[scaffold] 收到问题：{req.query}。请实现 Agent 管道。",
-        citations=[],
-        refused=False,
+        answer=result.answer,
+        citations=result.citations,
+        retrieval_log_id=result.retrieval_log_id,
+        refused=result.refused,
     )
 
 

@@ -21,4 +21,4 @@
 
 ## 当前状态
 
-M0 scaffold 已完成。下一步：**M1 ingest + 索引**（建议用户本地 §3.2–3.7，Agent 小步改代码 + 小结模式）。M0 若未做 K8s：先跑 [COLLABORATION.md](docs/COLLABORATION.md) §3.3。
+M0 scaffold 已完成；M1/M2 检索验收通过。**当前：M3 Agent 管道**（`apps/agent/pipeline.py` + `/v1/chat`）。验收：`python scripts/verify_m3.py`（需 vLLM + Gateway 已起）。

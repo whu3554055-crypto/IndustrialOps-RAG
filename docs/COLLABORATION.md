@@ -244,6 +244,25 @@ python scripts/verify_m2.py --write-evolution
 
 通过：`hybrid_rerank` Recall@5 ≥ 8/10。报告见 `reports/m2_verify.json`。
 
+### 3.7.2 M3 Agent 验收
+
+前提：**vLLM 已起**（§3.5）+ **Gateway 已起**（§3.6）。
+
+```powershell
+# 单条 chat 自测
+@'
+{"session_id":"test1","query":"P-101 出口压力正常范围是多少？"}
+'@ | Set-Content -Path reports\_chat_body.json -Encoding utf8NoBOM
+curl.exe -X POST "http://localhost:8080/v1/chat" `
+  -H "Content-Type: application/json; charset=utf-8" `
+  --data-binary "@reports\_chat_body.json"
+
+# 自动化：库内问答 + 3 轮追问 + 库外拒答
+python scripts/verify_m3.py --write-report
+```
+
+通过：3/3 PASS。报告见 `reports/m3_verify.json`；聊天只贴汇总行。
+
 ### 3.8 RAGAS 评测（实现后，你代劳跑）
 
 ```powershell
