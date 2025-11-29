@@ -27,13 +27,16 @@ def load_system_prompt() -> str:
     return SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
 
 
-def format_context(hits: list[dict]) -> str:
+def format_context(hits: list[dict], *, max_chars_per_chunk: int | None = None) -> str:
     if not hits:
         return "（无）"
     blocks: list[str] = []
     for i, hit in enumerate(hits, start=1):
         cite = f"{hit['doc_id']}:{hit['chunk_id']}"
-        blocks.append(f"[{i}] [{cite}] {hit.get('title', '')}\n{hit['text']}")
+        text = hit.get("text", "")
+        if max_chars_per_chunk and len(text) > max_chars_per_chunk:
+            text = text[:max_chars_per_chunk] + "…"
+        blocks.append(f"[{i}] [{cite}] {hit.get('title', '')}\n{text}")
     return "\n\n".join(blocks)
 
 

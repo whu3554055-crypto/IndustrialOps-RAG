@@ -13,6 +13,18 @@ GATEWAY = "http://localhost:8080"
 SESSION = "m3-verify"
 
 
+def _format_url_error(exc: urllib.error.URLError) -> str:
+    if isinstance(exc, urllib.error.HTTPError):
+        body = exc.read().decode("utf-8", errors="replace")
+        try:
+            detail = json.loads(body).get("detail", body)
+        except json.JSONDecodeError:
+            detail = body
+        text = detail if isinstance(detail, str) else json.dumps(detail, ensure_ascii=False)
+        return f"HTTP {exc.code}: {text[:240]}"
+    return str(exc)
+
+
 def _post_chat(query: str, session_id: str = SESSION) -> dict:
     body = json.dumps({"session_id": session_id, "query": query}, ensure_ascii=False).encode(
         "utf-8"
@@ -54,8 +66,9 @@ def main() -> int:
         _check("库内问答 + 引用", ok, r1.get("answer", "")[:60])
         report["cases"].append({"name": "in_domain", "response": r1, "ok": ok})
     except urllib.error.URLError as exc:
-        _check("库内问答 + 引用", False, str(exc))
-        report["cases"].append({"name": "in_domain", "error": str(exc), "ok": False})
+        err = _format_url_error(exc)
+        _check("库内问答 + 引用", False, err)
+        report["cases"].append({"name": "in_domain", "error": err, "ok": False})
 
     # Case 2: 3-turn follow-up (same session)
     total += 1
@@ -71,8 +84,9 @@ def main() -> int:
         _check("3 轮追问", ok, r3.get("answer", "")[:60])
         report["cases"].append({"name": "followup_3turn", "response": r3, "ok": ok})
     except urllib.error.URLError as exc:
-        _check("3 轮追问", False, str(exc))
-        report["cases"].append({"name": "followup_3turn", "error": str(exc), "ok": False})
+        err = _format_url_error(exc)
+        _check("3 轮追问", False, err)
+        report["cases"].append({"name": "followup_3turn", "error": err, "ok": False})
 
     # Case 3: out-of-corpus refuse
     total += 1
@@ -86,8 +100,9 @@ def main() -> int:
         _check("库外拒答", ok, r4.get("answer", "")[:60])
         report["cases"].append({"name": "out_of_corpus", "response": r4, "ok": ok})
     except urllib.error.URLError as exc:
-        _check("库外拒答", False, str(exc))
-        report["cases"].append({"name": "out_of_corpus", "error": str(exc), "ok": False})
+        err = _format_url_error(exc)
+        _check("库外拒答", False, err)
+        report["cases"].append({"name": "out_of_corpus", "error": err, "ok": False})
 
     print(f"\nM3: {passed}/{total} passed")
     if args.write_report:

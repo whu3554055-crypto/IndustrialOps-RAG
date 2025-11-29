@@ -50,6 +50,8 @@ llm:
   backends:
     vllm:
       enabled: true
+      # OpenAI API model id returned by `GET /v1/models` (Docker mount path)
+      served_model_id: /models/Qwen2.5-7B-Instruct-AWQ
       port: 8000
       quantization: awq
       gpu_memory_utilization: 0.88
@@ -94,6 +96,9 @@ retrieval:
 
 agent:
   max_history_turns: 3
+  # 与 COLLABORATION 3.5 单机 vLLM（max-model-len 512）对齐
+  context_top_k: 1
+  max_chars_per_chunk: 220
   self_check_enabled: true
   refuse_on_low_confidence: true
 

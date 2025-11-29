@@ -34,9 +34,27 @@ class Settings(BaseSettings):
     gateway_port: int = 8080
 
 
+_DEFAULT_VLLM_MODEL = Settings.model_fields["vllm_model"].default  # type: ignore[index]
+
+
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def resolve_vllm_model() -> str:
+    """Env VLLM_MODEL wins; else profile served_model_id for local Docker vLLM."""
+    s = get_settings()
+    if s.vllm_model != _DEFAULT_VLLM_MODEL:
+        return s.vllm_model
+    served = (
+        load_profile(s.ior_profile)
+        .get("llm", {})
+        .get("backends", {})
+        .get("vllm", {})
+        .get("served_model_id")
+    )
+    return served or s.vllm_model
 
 
 def load_profile(name: str | None = None) -> dict:
