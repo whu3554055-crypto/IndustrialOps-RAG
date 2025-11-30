@@ -11,9 +11,17 @@ from pathlib import Path
 
 GATEWAY = "http://localhost:8080"
 SESSION = "m3-verify"
+# 单机 CPU 检索 + 多轮 vLLM（生成/质检）；首次请求常 >2min
+DEFAULT_TIMEOUT_S = 600
 
 
 def _format_url_error(exc: urllib.error.URLError) -> str:
+    if isinstance(exc.reason, TimeoutError):
+        return (
+            f"请求超时（{exc.reason}）。"
+            "Agent 含 hybrid+rerank 与多次 vLLM，本机首次常较慢；"
+            "可加大 --timeout 或先 curl /v1/health 确认 Gateway 已起。"
+        )
     if isinstance(exc, urllib.error.HTTPError):
         body = exc.read().decode("utf-8", errors="replace")
         try:
@@ -25,7 +33,7 @@ def _format_url_error(exc: urllib.error.URLError) -> str:
     return str(exc)
 
 
-def _post_chat(query: str, session_id: str = SESSION) -> dict:
+def _post_chat(query: str, session_id: str = SESSION, *, timeout_s: int = DEFAULT_TIMEOUT_S) -> dict:
     body = json.dumps({"session_id": session_id, "query": query}, ensure_ascii=False).encode(
         "utf-8"
     )
@@ -35,7 +43,7 @@ def _post_chat(query: str, session_id: str = SESSION) -> dict:
         headers={"Content-Type": "application/json; charset=utf-8"},
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=120) as resp:
+    with urllib.request.urlopen(req, timeout=timeout_s) as resp:
         return json.loads(resp.read().decode("utf-8"))
 
 
@@ -49,9 +57,22 @@ def main() -> int:
     global GATEWAY  # noqa: PLW0603
     parser = argparse.ArgumentParser(description="M3 agent verification")
     parser.add_argument("--gateway", default=GATEWAY)
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=DEFAULT_TIMEOUT_S,
+        help=f"单次 /v1/chat 超时秒数（默认 {DEFAULT_TIMEOUT_S}）",
+    )
     parser.add_argument("--write-report", action="store_true")
     args = parser.parse_args()
     GATEWAY = args.gateway.rstrip("/")
+    timeout_s = max(30, args.timeout)
+
+    print(f"Gateway={GATEWAY}  timeout={timeout_s}s/req（Case2 共 3 次请求，请耐心等待）")
+
+    def chat(query: str, session_id: str = SESSION) -> dict:
+        print(f"  → {query[:40]}…" if len(query) > 40 else f"  → {query}")
+        return _post_chat(query, session_id=session_id, timeout_s=timeout_s)
 
     report: dict = {"session_id": SESSION, "cases": []}
     passed = 0
@@ -60,7 +81,7 @@ def main() -> int:
     # Case 1: in-domain
     total += 1
     try:
-        r1 = _post_chat("P-101 出口压力正常范围是多少？", session_id=f"{SESSION}-1")
+        r1 = chat("P-101 出口压力正常范围是多少？", session_id=f"{SESSION}-1")
         ok = not r1.get("refused") and len(r1.get("citations", [])) > 0
         passed += int(ok)
         _check("库内问答 + 引用", ok, r1.get("answer", "")[:60])
@@ -74,12 +95,11 @@ def main() -> int:
     total += 1
     try:
         sid = f"{SESSION}-followup"
-        _post_chat("离心泵 P-101 用什么润滑油？", session_id=sid)
-        _post_chat("更换周期呢？", session_id=sid)
-        r3 = _post_chat("还有什么是日常点检要注意的？", session_id=sid)
-        ok = not r3.get("refused") and "P-101" in r3.get("answer", "") or "轴承" in r3.get(
-            "answer", ""
-        )
+        chat("离心泵 P-101 用什么润滑油？", session_id=sid)
+        chat("更换周期呢？", session_id=sid)
+        r3 = chat("还有什么是日常点检要注意的？", session_id=sid)
+        ans = r3.get("answer", "")
+        ok = not r3.get("refused") and ("P-101" in ans or "轴承" in ans)
         passed += int(ok)
         _check("3 轮追问", ok, r3.get("answer", "")[:60])
         report["cases"].append({"name": "followup_3turn", "response": r3, "ok": ok})
@@ -91,7 +111,7 @@ def main() -> int:
     # Case 3: out-of-corpus refuse
     total += 1
     try:
-        r4 = _post_chat(
+        r4 = chat(
             "请分析一下今天 A 股上证指数走势并给出投资建议。",
             session_id=f"{SESSION}-ood",
         )

@@ -53,9 +53,9 @@ llm:
       # OpenAI API model id returned by `GET /v1/models` (Docker mount path)
       served_model_id: /models/Qwen2.5-7B-Instruct-AWQ
       port: 8000
-      quantization: awq
-      gpu_memory_utilization: 0.88
-      max_model_len: 4096
+      quantization: awq_marlin
+      gpu_memory_utilization: 0.95
+      max_model_len: 2048
       max_num_seqs: 2
       max_num_batched_tokens: 2048
       enforce_eager: false
@@ -96,11 +96,12 @@ retrieval:
 
 agent:
   max_history_turns: 3
-  # 与 COLLABORATION 3.5 单机 vLLM（max-model-len 512）对齐
-  context_top_k: 1
-  max_chars_per_chunk: 220
+  include_history_in_generation: false
   self_check_enabled: true
   refuse_on_low_confidence: true
+  # context_top_k 默认取 retrieval.rerank_top_n；勿为验收单独压到 1
+  # max_chars_per_chunk: 仅当推理 context 低于 ingest chunk 时按需设置（边界截断）
+  # 本地 vLLM 请对齐本 profile llm.backends.vllm.max_model_len（4096），勿长期用 512
 
 finetune:
   base_model: Qwen/Qwen2.5-7B-Instruct

@@ -149,9 +149,9 @@ docker run --gpus all --ipc=host -p 8000:8000 `
   --model /models/Qwen2.5-7B-Instruct-AWQ `
   --quantization awq_marlin `
   --gpu-memory-utilization 0.95 `
-  --max-model-len 512 `
-  --max-num-seqs 1 `
-  --max-num-batched-tokens 512 `
+  --max-model-len 2048 `
+  --max-num-seqs 2 `
+  --max-num-batched-tokens 2048 `
   --cpu-offload-gb 2
 ```
 
@@ -257,11 +257,12 @@ curl.exe -X POST "http://localhost:8080/v1/chat" `
   -H "Content-Type: application/json; charset=utf-8" `
   --data-binary "@reports\_chat_body.json"
 
-# 自动化：库内问答 + 3 轮追问 + 库外拒答
+# 自动化：库内问答 + 3 轮追问 + 库外拒答（单次 chat 默认 600s 超时，Case2 共 3 次）
 python scripts/verify_m3.py --write-report
+# 仍超时可加大：python scripts/verify_m3.py --timeout 900 --write-report
 ```
 
-通过：3/3 PASS。报告见 `reports/m3_verify.json`；聊天只贴汇总行。
+通过：3/3 PASS。报告见 `reports/m3_verify.json`；聊天只贴汇总行。首次请求含 CPU 检索加载，勿用 120s 短超时。
 
 ### 3.8 RAGAS 评测（实现后，你代劳跑）
 

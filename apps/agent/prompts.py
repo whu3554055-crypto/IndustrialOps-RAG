@@ -27,6 +27,18 @@ def load_system_prompt() -> str:
     return SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
 
 
+def truncate_at_boundary(text: str, max_chars: int) -> str:
+    """Prefix truncate at paragraph/sentence boundary (typical RAG context budgeting)."""
+    if len(text) <= max_chars:
+        return text
+    cut = text[:max_chars]
+    for sep in ("\n\n", "\n", "。"):
+        idx = cut.rfind(sep)
+        if idx > max_chars // 2:
+            return cut[: idx + len(sep)].rstrip() + "…"
+    return cut.rstrip() + "…"
+
+
 def format_context(hits: list[dict], *, max_chars_per_chunk: int | None = None) -> str:
     if not hits:
         return "（无）"
@@ -35,7 +47,7 @@ def format_context(hits: list[dict], *, max_chars_per_chunk: int | None = None) 
         cite = f"{hit['doc_id']}:{hit['chunk_id']}"
         text = hit.get("text", "")
         if max_chars_per_chunk and len(text) > max_chars_per_chunk:
-            text = text[:max_chars_per_chunk] + "…"
+            text = truncate_at_boundary(text, max_chars_per_chunk)
         blocks.append(f"[{i}] [{cite}] {hit.get('title', '')}\n{text}")
     return "\n\n".join(blocks)
 

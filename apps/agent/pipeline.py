@@ -36,9 +36,16 @@ def _build_messages(
     history: list[dict[str, str]],
     context: str,
     query: str,
+    *,
+    include_history: bool,
 ) -> list[dict[str, str]]:
+    """
+    RAG 生成阶段：默认仅 system + 检索上下文 + 当前问题。
+    多轮指代由 rewrite_query 使用 history 处理，不把长对话塞进生成 prompt。
+    """
     messages: list[dict[str, str]] = [{"role": "system", "content": system}]
-    messages.extend(history)
+    if include_history:
+        messages.extend(history)
     messages.append(
         {
             "role": "user",
@@ -48,26 +55,40 @@ def _build_messages(
     return messages
 
 
-def _context_limits(cfg: dict) -> tuple[int, int | None]:
-    top_k = int(cfg.get("context_top_k", 5))
-    max_chars = cfg.get("max_chars_per_chunk")
-    return top_k, int(max_chars) if max_chars is not None else None
+def _context_top_k(cfg: dict) -> int:
+    if "context_top_k" in cfg:
+        return int(cfg["context_top_k"])
+    retrieval = load_profile(get_settings().ior_profile).get("retrieval", {})
+    return int(retrieval.get("rerank_top_n", 5))
+
+
+def _max_chars_per_chunk(cfg: dict) -> int | None:
+    raw = cfg.get("max_chars_per_chunk")
+    return int(raw) if raw is not None else None
+
+
+def _include_history_in_generation(cfg: dict) -> bool:
+    return bool(cfg.get("include_history_in_generation", False))
 
 
 async def _retrieve(search_query: str, cfg: dict) -> list[dict]:
-    top_k, _ = _context_limits(cfg)
-    return await hybrid_search(search_query, top_k=top_k)
+    return await hybrid_search(search_query, top_k=_context_top_k(cfg))
 
 
 async def _generate_answer(
     query: str,
     history: list[dict[str, str]],
     hits: list[dict],
-    *,
-    max_chars_per_chunk: int | None = None,
+    cfg: dict,
 ) -> str:
-    context = format_context(hits, max_chars_per_chunk=max_chars_per_chunk)
-    messages = _build_messages(load_system_prompt(), history, context, query)
+    context = format_context(hits, max_chars_per_chunk=_max_chars_per_chunk(cfg))
+    messages = _build_messages(
+        load_system_prompt(),
+        history,
+        context,
+        query,
+        include_history=_include_history_in_generation(cfg),
+    )
     return await generate(messages)
 
 
@@ -87,7 +108,6 @@ async def run_agentic_rag(
     max_turns = int(cfg.get("max_history_turns", 3))
     self_check_enabled = bool(cfg.get("self_check_enabled", True))
     refuse_on_low_confidence = bool(cfg.get("refuse_on_low_confidence", True))
-    _, max_chars = _context_limits(cfg)
 
     session_history = history if history is not None else get_history(session_id, max_turns)
     log_id = str(uuid.uuid4())
@@ -104,14 +124,11 @@ async def run_agentic_rag(
             refused=True,
         )
 
-    answer = await _generate_answer(
-        query, session_history, hits, max_chars_per_chunk=max_chars
-    )
+    answer = await _generate_answer(query, session_history, hits, cfg)
+    check_context = format_context(hits, max_chars_per_chunk=_max_chars_per_chunk(cfg))
 
     if self_check_enabled:
-        supported = await check_answer_supported(
-            query, answer, format_context(hits, max_chars_per_chunk=max_chars)
-        )
+        supported = await check_answer_supported(query, answer, check_context)
         if not supported:
             expanded_query = await rewrite_query(
                 query, session_history, expand=True
@@ -119,16 +136,12 @@ async def run_agentic_rag(
             hits_retry = await _retrieve(expanded_query, cfg)
             if hits_retry and check_retrieval_confidence(hits_retry):
                 answer_retry = await _generate_answer(
-                    query,
-                    session_history,
-                    hits_retry,
-                    max_chars_per_chunk=max_chars,
+                    query, session_history, hits_retry, cfg
                 )
-                if await check_answer_supported(
-                    query,
-                    answer_retry,
-                    format_context(hits_retry, max_chars_per_chunk=max_chars),
-                ):
+                retry_context = format_context(
+                    hits_retry, max_chars_per_chunk=_max_chars_per_chunk(cfg)
+                )
+                if await check_answer_supported(query, answer_retry, retry_context):
                     hits = hits_retry
                     answer = answer_retry
                 else:
