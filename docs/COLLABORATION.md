@@ -246,9 +246,12 @@ python scripts/verify_m2.py --write-evolution
 
 ### 3.7.2 M3 Agent 验收
 
-前提：**vLLM 已起**（§3.5）+ **Gateway 已起**（§3.6）。
+前提：**vLLM 已起**（§3.5）+ **Gateway 已起**（§3.6）。本机 **勿改** 检索 `release_embedder` / `release_reranker`（16GB 上防 OOM）；慢是预期，用加长超时与分 case 验收即可。
 
 ```powershell
+# Gateway 建议单 worker，避免多进程各载一份 CPU 模型
+uvicorn apps.gateway.main:app --host 0.0.0.0 --port 8080
+
 # 单条 chat 自测
 @'
 {"session_id":"test1","query":"P-101 出口压力正常范围是多少？"}
@@ -257,12 +260,17 @@ curl.exe -X POST "http://localhost:8080/v1/chat" `
   -H "Content-Type: application/json; charset=utf-8" `
   --data-binary "@reports\_chat_body.json"
 
-# 自动化：库内问答 + 3 轮追问 + 库外拒答（单次 chat 默认 600s 超时，Case2 共 3 次）
+# 全量（单次 /v1/chat 默认 1200s 超时）
 python scripts/verify_m3.py --write-report
-# 仍超时可加大：python scripts/verify_m3.py --timeout 900 --write-report
+
+# 仅 3 轮追问（Case2，连续 3 次 chat，最耗时）
+python scripts/verify_m3.py --case 2 --write-report
+# 等价：--case followup
+
+# 单跑其它：--case 1 | --case 3  或  --case in_domain | out_of_corpus
 ```
 
-通过：3/3 PASS。报告见 `reports/m3_verify.json`；聊天只贴汇总行。首次请求含 CPU 检索加载，勿用 120s 短超时。
+通过：所选 case 均 PASS。报告见 `reports/m3_verify.json`；聊天只贴汇总行。全量 3/3 时约 5 次 chat，总耗时可达十余分钟，属正常。
 
 ### 3.8 RAGAS 评测（实现后，你代劳跑）
 

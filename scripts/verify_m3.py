@@ -7,20 +7,23 @@ import json
 import sys
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 from pathlib import Path
 
 GATEWAY = "http://localhost:8080"
 SESSION = "m3-verify"
-# 单机 CPU 检索 + 多轮 vLLM（生成/质检）；首次请求常 >2min
-DEFAULT_TIMEOUT_S = 600
+# 本机 exclusive 检索：每次 hybrid+rerank 会加载/释放 CPU 模型；单次 chat 常数分钟级
+DEFAULT_TIMEOUT_S = 1200
+
+CASE_CHOICES = ("all", "1", "2", "3", "in_domain", "followup", "out_of_corpus")
 
 
 def _format_url_error(exc: urllib.error.URLError) -> str:
     if isinstance(exc.reason, TimeoutError):
         return (
             f"请求超时（{exc.reason}）。"
-            "Agent 含 hybrid+rerank 与多次 vLLM，本机首次常较慢；"
-            "可加大 --timeout 或先 curl /v1/health 确认 Gateway 已起。"
+            "本机 Agent 含 CPU 检索加载与多次 vLLM，属预期偏慢；"
+            "可加大 --timeout、用 --case 2 单独验追问，或先 curl /v1/health。"
         )
     if isinstance(exc, urllib.error.HTTPError):
         body = exc.read().decode("utf-8", errors="replace")
@@ -53,6 +56,67 @@ def _check(label: str, ok: bool, detail: str = "") -> bool:
     return ok
 
 
+def _normalize_cases(raw: str) -> set[str]:
+    if raw == "all":
+        return {"1", "2", "3"}
+    aliases = {
+        "in_domain": "1",
+        "followup": "2",
+        "out_of_corpus": "3",
+    }
+    key = aliases.get(raw, raw)
+    return {key}
+
+
+def _run_case_in_domain(chat: Callable[..., dict], report: dict) -> bool:
+    try:
+        r1 = chat("P-101 出口压力正常范围是多少？", session_id=f"{SESSION}-1")
+        ok = not r1.get("refused") and len(r1.get("citations", [])) > 0
+        _check("库内问答 + 引用", ok, r1.get("answer", "")[:60])
+        report["cases"].append({"name": "in_domain", "response": r1, "ok": ok})
+        return ok
+    except urllib.error.URLError as exc:
+        err = _format_url_error(exc)
+        _check("库内问答 + 引用", False, err)
+        report["cases"].append({"name": "in_domain", "error": err, "ok": False})
+        return False
+
+
+def _run_case_followup(chat: Callable[..., dict], report: dict) -> bool:
+    try:
+        sid = f"{SESSION}-followup"
+        chat("离心泵 P-101 用什么润滑油？", session_id=sid)
+        chat("更换周期呢？", session_id=sid)
+        r3 = chat("还有什么是日常点检要注意的？", session_id=sid)
+        ans = r3.get("answer", "")
+        ok = not r3.get("refused") and ("P-101" in ans or "轴承" in ans)
+        _check("3 轮追问", ok, r3.get("answer", "")[:60])
+        report["cases"].append({"name": "followup_3turn", "response": r3, "ok": ok})
+        return ok
+    except urllib.error.URLError as exc:
+        err = _format_url_error(exc)
+        _check("3 轮追问", False, err)
+        report["cases"].append({"name": "followup_3turn", "error": err, "ok": False})
+        return False
+
+
+def _run_case_out_of_corpus(chat: Callable[..., dict], report: dict) -> bool:
+    try:
+        r4 = chat(
+            "请分析一下今天 A 股上证指数走势并给出投资建议。",
+            session_id=f"{SESSION}-ood",
+        )
+        ok = bool(r4.get("refused"))
+        _check("库外拒答", ok, r4.get("answer", "")[:60])
+        report["cases"].append({"name": "out_of_corpus", "response": r4, "ok": ok})
+        return ok
+    except urllib.error.URLError as exc:
+        err = _format_url_error(exc)
+        _check("库外拒答", False, err)
+        report["cases"].append({"name": "out_of_corpus", "error": err, "ok": False})
+        return False
+
+
 def main() -> int:
     global GATEWAY  # noqa: PLW0603
     parser = argparse.ArgumentParser(description="M3 agent verification")
@@ -63,66 +127,40 @@ def main() -> int:
         default=DEFAULT_TIMEOUT_S,
         help=f"单次 /v1/chat 超时秒数（默认 {DEFAULT_TIMEOUT_S}）",
     )
+    parser.add_argument(
+        "--case",
+        default="all",
+        choices=CASE_CHOICES,
+        help="运行用例：all | 1/2/3 | in_domain | followup | out_of_corpus",
+    )
     parser.add_argument("--write-report", action="store_true")
     args = parser.parse_args()
     GATEWAY = args.gateway.rstrip("/")
     timeout_s = max(30, args.timeout)
+    selected = _normalize_cases(args.case)
 
-    print(f"Gateway={GATEWAY}  timeout={timeout_s}s/req（Case2 共 3 次请求，请耐心等待）")
+    case2_note = "（本 case 共 3 次 /v1/chat）" if "2" in selected else ""
+    print(f"Gateway={GATEWAY}  timeout={timeout_s}s/req  cases={sorted(selected)}{case2_note}")
 
     def chat(query: str, session_id: str = SESSION) -> dict:
         print(f"  → {query[:40]}…" if len(query) > 40 else f"  → {query}")
         return _post_chat(query, session_id=session_id, timeout_s=timeout_s)
 
-    report: dict = {"session_id": SESSION, "cases": []}
+    report: dict = {"session_id": SESSION, "cases": [], "selected_cases": sorted(selected)}
     passed = 0
     total = 0
 
-    # Case 1: in-domain
-    total += 1
-    try:
-        r1 = chat("P-101 出口压力正常范围是多少？", session_id=f"{SESSION}-1")
-        ok = not r1.get("refused") and len(r1.get("citations", [])) > 0
-        passed += int(ok)
-        _check("库内问答 + 引用", ok, r1.get("answer", "")[:60])
-        report["cases"].append({"name": "in_domain", "response": r1, "ok": ok})
-    except urllib.error.URLError as exc:
-        err = _format_url_error(exc)
-        _check("库内问答 + 引用", False, err)
-        report["cases"].append({"name": "in_domain", "error": err, "ok": False})
-
-    # Case 2: 3-turn follow-up (same session)
-    total += 1
-    try:
-        sid = f"{SESSION}-followup"
-        chat("离心泵 P-101 用什么润滑油？", session_id=sid)
-        chat("更换周期呢？", session_id=sid)
-        r3 = chat("还有什么是日常点检要注意的？", session_id=sid)
-        ans = r3.get("answer", "")
-        ok = not r3.get("refused") and ("P-101" in ans or "轴承" in ans)
-        passed += int(ok)
-        _check("3 轮追问", ok, r3.get("answer", "")[:60])
-        report["cases"].append({"name": "followup_3turn", "response": r3, "ok": ok})
-    except urllib.error.URLError as exc:
-        err = _format_url_error(exc)
-        _check("3 轮追问", False, err)
-        report["cases"].append({"name": "followup_3turn", "error": err, "ok": False})
-
-    # Case 3: out-of-corpus refuse
-    total += 1
-    try:
-        r4 = chat(
-            "请分析一下今天 A 股上证指数走势并给出投资建议。",
-            session_id=f"{SESSION}-ood",
-        )
-        ok = bool(r4.get("refused"))
-        passed += int(ok)
-        _check("库外拒答", ok, r4.get("answer", "")[:60])
-        report["cases"].append({"name": "out_of_corpus", "response": r4, "ok": ok})
-    except urllib.error.URLError as exc:
-        err = _format_url_error(exc)
-        _check("库外拒答", False, err)
-        report["cases"].append({"name": "out_of_corpus", "error": err, "ok": False})
+    runners = {
+        "1": _run_case_in_domain,
+        "2": _run_case_followup,
+        "3": _run_case_out_of_corpus,
+    }
+    for key in ("1", "2", "3"):
+        if key not in selected:
+            continue
+        total += 1
+        if runners[key](chat, report):
+            passed += 1
 
     print(f"\nM3: {passed}/{total} passed")
     if args.write_report:
