@@ -272,6 +272,25 @@ python scripts/verify_m3.py --case 2 --write-report
 
 通过：所选 case 均 PASS。报告见 `reports/m3_verify.json`；聊天只贴汇总行。全量 3/3 时约 5 次 chat，总耗时可达十余分钟，属正常。
 
+### 3.7.3 M4 Serving / Router 验收
+
+前提：**vLLM 已起**（§3.5）。Gateway 可选（验 `/v1/llm/backends` 时需起 §3.6）。
+
+```powershell
+# 配置 + router 探活（Gateway 未起时加 --skip-gateway）
+python scripts/verify_m4.py --write-report
+
+# 含 Gateway 后端列表 + 2 请求快速压测（需 vLLM）
+python scripts/verify_m4.py --benchmark --write-report
+
+# 正式压测并回填 docs/serving_benchmark.md（vLLM）
+python scripts/benchmark_serving.py --backend vllm --concurrency 2 --requests 4 --update-doc
+```
+
+**TRT-LLM**：须先停 vLLM、编译 engine（见 `serving/tensorrt-llm/README.md`，**高本机成本须拍板**），再跑 `--backend tensorrt_llm`。
+
+通过：`verify_m4` profile/router 用例 PASS；`serving_benchmark.md` 至少 vLLM 行有数据。报告见 `reports/m4_verify.json`。
+
 ### 3.8 RAGAS 评测（实现后，你代劳跑）
 
 ```powershell

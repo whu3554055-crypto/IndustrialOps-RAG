@@ -4,7 +4,8 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from apps.agent.pipeline import run_agentic_rag
-from apps.config import get_settings
+from apps.config import get_settings, load_profile
+from apps.generation.llm_router import generate, list_backend_status
 from apps.retrieval.langchain.hybrid_chain import retrieve_context
 from apps.retrieval.llamaindex.graph_engine import query_graph
 from apps.retrieval.llamaindex.keyword_engine import query_keyword
@@ -65,14 +66,66 @@ class SearchResponse(BaseModel):
     hits: list[SearchHit]
 
 
+class GenerateRequest(BaseModel):
+    messages: list[dict] = Field(..., min_length=1)
+    backend: str | None = Field(default=None, description="vllm | tensorrt_llm | api")
+    max_tokens: int = Field(default=256, ge=1, le=2048)
+
+
+class GenerateResponse(BaseModel):
+    content: str
+    backend: str
+
+
+class BackendInfo(BaseModel):
+    name: str
+    enabled: bool
+    active: bool
+    base_url: str
+    reachable: bool
+    model: str | None = None
+    error: str | None = None
+
+
+class BackendsResponse(BaseModel):
+    active_backend: str
+    mutual_exclusive_gpu: bool
+    backends: list[BackendInfo]
+
+
 @app.get("/v1/health")
 async def health() -> dict:
     s = get_settings()
+    profile = load_profile()
     return {
         "status": "ok",
         "profile": s.ior_profile,
         "llm_backend": s.llm_active_backend,
+        "mutual_exclusive_gpu": profile.get("gpu", {}).get("mutual_exclusive_gpu", True),
     }
+
+
+@app.get("/v1/llm/backends", response_model=BackendsResponse)
+async def llm_backends() -> BackendsResponse:
+    s = get_settings()
+    profile = load_profile()
+    statuses = await list_backend_status()
+    return BackendsResponse(
+        active_backend=s.llm_active_backend,
+        mutual_exclusive_gpu=bool(profile.get("gpu", {}).get("mutual_exclusive_gpu")),
+        backends=[BackendInfo(**status.__dict__) for status in statuses],
+    )
+
+
+@app.post("/v1/generate", response_model=GenerateResponse)
+async def generate_text(req: GenerateRequest) -> GenerateResponse:
+    s = get_settings()
+    backend = req.backend or s.llm_active_backend
+    try:
+        content = await generate(req.messages, backend=backend, max_tokens=req.max_tokens)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"LLM generate failed: {exc}") from exc
+    return GenerateResponse(content=content, backend=backend)
 
 
 @app.post("/v1/chat", response_model=ChatResponse)

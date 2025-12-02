@@ -15,5 +15,6 @@
 | 2026-05-31 | Embedding/Rerank 分时释放内存 | 16GB RAM 上 bge-m3 与 reranker 不可同驻；rerank 前 `release_embedder()` |
 | 2026-05-31 | Agent 生成不含对话历史 | 多轮仅 rewrite 用 history；生成 prompt = system + 检索上下文 + 当前问句（工业 RAG 常规） |
 | 2026-05-31 | vLLM `served_model_id` 与 OpenAI API 对齐 | `GET /v1/models` 的 id 写入 profile / `VLLM_MODEL`，非 HF 仓库名 |
+| 2026-05-31 | M4 压测走 streaming TTFT | `scripts/benchmark_serving.py` 直连 OpenAI 兼容 API，不经 RAG 管道 |
 
 <!-- 新决策追加在表末 -->

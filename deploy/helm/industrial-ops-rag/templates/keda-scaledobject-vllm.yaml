@@ -1,0 +1,22 @@
+{{- if .Values.keda.enabled }}
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ include "ior.fullname" . }}-vllm-scaler
+  labels:
+    {{- include "ior.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    name: {{ include "ior.fullname" . }}-vllm
+  minReplicaCount: {{ .Values.keda.vllm.minReplicas }}
+  maxReplicaCount: {{ .Values.keda.vllm.maxReplicas }}
+  pollingInterval: {{ .Values.keda.vllm.pollingInterval | default 30 }}
+  cooldownPeriod: {{ .Values.keda.vllm.cooldownPeriod | default 300 }}
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://{{ include "ior.fullname" . }}-prometheus:9090
+        metricName: vllm_num_requests_waiting
+        threshold: "5"
+        query: sum(vllm_num_requests_waiting)
+{{- end }}

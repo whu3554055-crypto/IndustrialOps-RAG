@@ -62,6 +62,8 @@ keda:
   vllm:
     minReplicas: 1
     maxReplicas: 10
+    pollingInterval: 30
+    cooldownPeriod: 300
 
 monitoring:
   prometheus:

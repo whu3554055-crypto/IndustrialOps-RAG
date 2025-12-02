@@ -21,4 +21,4 @@
 
 ## 当前状态
 
-M0 scaffold 已完成；M1/M2 检索验收通过。**当前：M3 Agent 管道**（`apps/agent/pipeline.py` + `/v1/chat`）。验收：`python scripts/verify_m3.py`（需 vLLM + Gateway 已起）。
+M0–M3 已完成。**当前：M4 Serving**（`apps/generation/llm_router.py` + KEDA + benchmark）。验收：`python scripts/verify_m4.py`；压测：`python scripts/benchmark_serving.py --update-doc`（需 vLLM）。
