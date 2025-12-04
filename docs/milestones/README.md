@@ -1,0 +1,32 @@
+# 里程碑学习文档约定
+
+每个里程碑除 **验收脚本** 外，提供 **分层文档**，方便复习与 onboarding。
+
+## 文档层级
+
+| 层级 | 位置 | 内容 |
+|------|------|------|
+| **L1 学习 hub** | `docs/m{N}_*.md` | 流程图、模块地图、参数表、场景、验收清单 |
+| **L2 操作手册** | `docs/COLLABORATION.md` §3.x | 可复制命令（用户本机执行） |
+| **L3 组件 README** | `serving/*/`, `pipelines/*/` | 单组件启动参数、踩坑 |
+| **L4 代码入口** | 模块 docstring | 1 段摘要 + 指向 L1 |
+| **L5 配置注释** | `deploy/profiles/*.yaml` | 难懂字段行尾说明 |
+
+## 进度
+
+| 里程碑 | 学习 hub | 状态 |
+|--------|----------|------|
+| M0 | `docs/m0_infra.md` | 待补 |
+| M1 | `docs/m1_ingest.md` | 待补 |
+| M2 | `docs/m2_retrieval.md` | 待补（部分见 `retrieval_modes.md`） |
+| M3 | `docs/m3_agent.md` | 待补 |
+| **M4** | **[m4_serving.md](../m4_serving.md)** | **已完成** |
+| M5+ | 按 PROJECT_PLAN 推进 | — |
+
+## 新里程碑 Agent  checklist
+
+1. 写 `docs/m{N}_*.md`（含 mermaid + 参数表）
+2. COLLABORATION §3 增一节并链接 hub
+3. 核心模块 docstring 指向 hub
+4. profile / Helm 难字段加注释
+5. 更新本表与 PROJECT_PLAN §8 索引

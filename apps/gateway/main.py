@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 from apps.agent.pipeline import run_agentic_rag
 from apps.config import get_settings, load_profile
-from apps.generation.llm_router import generate, list_backend_status
+from apps.generation.llm_router import generate, list_backend_status  # M4: docs/m4_serving.md
 from apps.retrieval.langchain.hybrid_chain import retrieve_context
 from apps.retrieval.llamaindex.graph_engine import query_graph
 from apps.retrieval.llamaindex.keyword_engine import query_keyword

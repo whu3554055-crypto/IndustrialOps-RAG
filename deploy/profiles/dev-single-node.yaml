@@ -10,7 +10,7 @@ cluster:
 gpu:
   count: 1
   vram_gb: 6
-  mutual_exclusive_gpu: true  # vLLM 与 TensorRT-LLM 不同时占 GPU
+  mutual_exclusive_gpu: true  # vLLM 与 TensorRT-LLM 不能同占 GPU；切换见 docs/m4_serving.md §3.2
 
 services:
   milvus:
@@ -46,29 +46,27 @@ services:
 
 llm:
   primary: Qwen/Qwen2.5-7B-Instruct-AWQ
-  active_backend: vllm  # vllm | tensorrt_llm | api
+  active_backend: vllm  # 路由默认目标：vllm | tensorrt_llm | api；对应 .env LLM_ACTIVE_BACKEND
   backends:
     vllm:
       enabled: true
-      # OpenAI API model id returned by `GET /v1/models` (Docker mount path)
+      # OpenAI API model id（GET /v1/models）；Docker 挂载路径，非 HF 仓库名
       served_model_id: /models/Qwen2.5-7B-Instruct-AWQ
-      port: 8000
-      quantization: awq_marlin
-      gpu_memory_utilization: 0.95
-      max_model_len: 2048
-      max_num_seqs: 2
+      port: 8000  # VLLM_BASE_URL=http://localhost:8000/v1
+      quantization: awq_marlin  # 6GB 推荐；K8s 大显存可用 awq
+      gpu_memory_utilization: 0.95  # 显存预占比例；OOM 降至 0.88
+      max_model_len: 2048  # KV cache 上限；与 Docker --max-model-len 对齐
+      max_num_seqs: 2  # 最大并发序列；压测 --concurrency 参考此值
       max_num_batched_tokens: 2048
       enforce_eager: false
     tensorrt_llm:
-      enabled: true
-      port: 8001
+      enabled: true  # 架构保留；本机分时启服，不与 vLLM 同占 GPU
+      port: 8001  # TENSORRT_LLM_BASE_URL=http://localhost:8001/v1
       max_batch_size: 1
       max_input_len: 2048
       max_output_len: 1024
     api:
-      enabled: false
-      base_url: ""
-      model: ""
+      enabled: false  # 设为 true 并配 OPENAI_* 可做 GPT-4 等对照
 
 embedding:
   model: BAAI/bge-m3
@@ -115,13 +113,12 @@ finetune:
   bnb_4bit: true
 
 keda:
-  enabled: true
+  enabled: true  # K8s 自动扩缩 vLLM；本机 Docker 可不装 KEDA，验收只查此项为 true
   vllm:
     min_replicas: 1
-    max_replicas: 1
-    polling_interval: 30
-    cooldown_period: 300
-    # 生产 overlay 改为 max_replicas: 10+
+    max_replicas: 1  # dev 单机无法扩多副本；生产 overlay 改为 10+
+    polling_interval: 30  # 秒；查 Prometheus 指标频率
+    cooldown_period: 300  # 秒；缩容前等待，防抖动
   scaled_job:
     ingest_parallelism: 1
     ragas_parallelism: 1
@@ -137,5 +134,5 @@ startup_order:
   - gateway
   - prometheus
   - grafana
-  # tensorrt_llm: 手动切换 active_backend 后启动
+  # tensorrt_llm: 手动切换 active_backend 后启动；步骤 docs/m4_serving.md §3.2
   # ragas_cronjob / train_job: 按需

@@ -1,4 +1,10 @@
-"""Serving benchmark CLI — TTFT / TPOT / QPS for vLLM | TensorRT-LLM."""
+"""Serving benchmark CLI — TTFT / TPOT / QPS for vLLM | TensorRT-LLM.
+
+学习文档：docs/m4_serving.md §6（参数表与场景）
+本机 6GB 推荐：python scripts/benchmark_serving.py --backend vllm --lite --update-doc
+
+Deliberately 直连 LLM，不经过 RAG，避免 CPU 检索耗时污染 Serving 指标。
+"""
 
 from __future__ import annotations
 
@@ -124,7 +130,12 @@ async def _main_async(args: argparse.Namespace) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="M4 serving benchmark")
+    parser = argparse.ArgumentParser(
+        description="M4 serving benchmark — 直连 LLM 测 TTFT/TPOT/QPS",
+        epilog="示例: python scripts/benchmark_serving.py --backend vllm --lite --update-doc\n"
+        "文档: docs/m4_serving.md §6",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("--backend", default=None, help="vllm | tensorrt_llm | api")
     parser.add_argument("--concurrency", type=int, default=2)
     parser.add_argument("--requests", type=int, default=4)

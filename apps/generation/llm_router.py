@@ -1,4 +1,13 @@
-"""LLM Router — vLLM | TensorRT-LLM | API."""
+"""LLM Router — vLLM | TensorRT-LLM | API.
+
+M4 推理层统一入口：按 profile / .env 选择后端，OpenAI 兼容调用。
+学习文档（流程图、切换、压测、KEDA）：docs/m4_serving.md
+
+主要 API:
+  - probe_backend / list_backend_status  探活 GET /v1/models
+  - generate                             Agent / Gateway 非流式
+  - generate_stream_metrics + run_benchmark  压测 TTFT/TPOT（见 scripts/benchmark_serving.py）
+"""
 
 from __future__ import annotations
 

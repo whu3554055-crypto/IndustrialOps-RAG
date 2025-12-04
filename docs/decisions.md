@@ -16,5 +16,6 @@
 | 2026-05-31 | Agent 生成不含对话历史 | 多轮仅 rewrite 用 history；生成 prompt = system + 检索上下文 + 当前问句（工业 RAG 常规） |
 | 2026-05-31 | vLLM `served_model_id` 与 OpenAI API 对齐 | `GET /v1/models` 的 id 写入 profile / `VLLM_MODEL`，非 HF 仓库名 |
 | 2026-05-31 | M4 压测走 streaming TTFT | `scripts/benchmark_serving.py` 直连 OpenAI 兼容 API，不经 RAG 管道 |
+| 2026-05-31 | 里程碑文档分层 L1–L5 | 学习 hub `docs/m{N}_*.md` + 代码 docstring 指向；见 `docs/milestones/README.md` |
 
 <!-- 新决策追加在表末 -->

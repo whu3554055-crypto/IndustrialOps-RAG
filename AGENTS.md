@@ -21,4 +21,4 @@
 
 ## 当前状态
 
-M0–M3 已完成。**当前：M4 Serving**（`apps/generation/llm_router.py` + KEDA + benchmark）。验收：`python scripts/verify_m4.py`；压测：`python scripts/benchmark_serving.py --update-doc`（需 vLLM）。
+M0–M3 已完成。**当前：M4 Serving**（学习入口 [docs/m4_serving.md](docs/m4_serving.md)）。验收：`python scripts/verify_m4.py`；压测：`python scripts/benchmark_serving.py --lite --update-doc`（需 vLLM，用户本机跑）。

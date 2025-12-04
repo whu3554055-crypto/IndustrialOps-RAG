@@ -1,3 +1,7 @@
+# KEDA ScaledObject — 按 vLLM 排队请求数自动扩缩 Pod 副本
+# 学习：docs/m4_serving.md §8
+# 前提：集群已安装 KEDA（helm install keda kedacore/keda -n keda）
+# dev-single-node：maxReplicaCount=1，本机仅验证模板存在，不实际扩容
 {{- if .Values.keda.enabled }}
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
@@ -7,16 +11,16 @@ metadata:
     {{- include "ior.labels" . | nindent 4 }}
 spec:
   scaleTargetRef:
-    name: {{ include "ior.fullname" . }}-vllm
-  minReplicaCount: {{ .Values.keda.vllm.minReplicas }}
-  maxReplicaCount: {{ .Values.keda.vllm.maxReplicas }}
-  pollingInterval: {{ .Values.keda.vllm.pollingInterval | default 30 }}
-  cooldownPeriod: {{ .Values.keda.vllm.cooldownPeriod | default 300 }}
+    name: {{ include "ior.fullname" . }}-vllm  # 被扩缩的 Deployment
+  minReplicaCount: {{ .Values.keda.vllm.minReplicas }}   # 最少副本（通常 1）
+  maxReplicaCount: {{ .Values.keda.vllm.maxReplicas }}   # dev=1；生产可 10+
+  pollingInterval: {{ .Values.keda.vllm.pollingInterval | default 30 }}   # 查 Prom 间隔（秒）
+  cooldownPeriod: {{ .Values.keda.vllm.cooldownPeriod | default 300 }}     # 缩容冷却（秒）
   triggers:
     - type: prometheus
       metadata:
         serverAddress: http://{{ include "ior.fullname" . }}-prometheus:9090
         metricName: vllm_num_requests_waiting
-        threshold: "5"
-        query: sum(vllm_num_requests_waiting)
+        threshold: "5"   # 排队请求超过 5 则扩容
+        query: sum(vllm_num_requests_waiting)  # 需 vLLM ServiceMonitor 暴露同名指标
 {{- end }}

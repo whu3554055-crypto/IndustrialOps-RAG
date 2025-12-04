@@ -1,4 +1,8 @@
-"""M4 验收 — LLM router、KEDA 配置、可选 serving 压测."""
+"""M4 验收 — LLM router、KEDA 配置、可选 serving 压测.
+
+学习文档：docs/m4_serving.md §7
+用例：profile 双后端+KEDA → active 后端 probe →（可选）Gateway /v1/llm/backends →（可选）quick benchmark
+"""
 
 from __future__ import annotations
 
@@ -152,7 +156,12 @@ async def _async_main(args: argparse.Namespace) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="M4 serving / router verification")
+    parser = argparse.ArgumentParser(
+        description="M4 serving / router verification",
+        epilog="示例: python scripts/verify_m4.py --skip-gateway --write-report\n"
+        "文档: docs/m4_serving.md §7",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("--gateway", default=GATEWAY)
     parser.add_argument("--skip-gateway", action="store_true", help="Gateway 未起时跳过 HTTP 用例")
     parser.add_argument("--benchmark", action="store_true", help="跑 2 请求快速压测（需 vLLM）")

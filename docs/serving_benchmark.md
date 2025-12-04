@@ -1,6 +1,7 @@
 # 推理服务压测（vLLM vs TensorRT-LLM）
 
-> 执行压测前须阅读 [COLLABORATION.md](./COLLABORATION.md) §3.7.3。
+> **学习文档**：[m4_serving.md](./m4_serving.md)（流程图、参数、KEDA、切换步骤）。  
+> **执行命令**：[COLLABORATION.md](./COLLABORATION.md) §3.7.3。
 
 ## 环境
 
@@ -41,7 +42,7 @@ python scripts/benchmark_serving.py --backend tensorrt_llm --lite --update-doc
 ## KEDA
 
 Helm 模板：`deploy/helm/industrial-ops-rag/templates/keda-scaledobject-vllm.yaml`  
-单机 dev `maxReplicas: 1`；生产 overlay 见 `values.yaml`。
+字段说明见 [m4_serving.md §8](./m4_serving.md#8-keda-helm-模板)。
 
 ## 最近测量
 

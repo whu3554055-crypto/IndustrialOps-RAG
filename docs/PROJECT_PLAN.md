@@ -102,7 +102,9 @@
 | [decisions.md](./decisions.md) | ADR 决策记录 |
 | [retrieval_modes.md](./retrieval_modes.md) | LlamaIndex/LangChain 检索模式与指标 |
 | [finetune_pitfalls.md](./finetune_pitfalls.md) | 微调踩坑日记 |
-| [serving_benchmark.md](./serving_benchmark.md) | vLLM vs TRT 压测 |
+| [serving_benchmark.md](./serving_benchmark.md) | vLLM vs TRT 压测结果表 |
+| [m4_serving.md](./m4_serving.md) | **M4** 推理 Router、KEDA、压测、引擎切换（学习 hub） |
+| [milestones/README.md](./milestones/README.md) | 各里程碑文档层级约定 |
 | [scaling-data.md](./scaling-data.md) | 2k→100k 数据扩展 |
 | [cloud-agnostic.md](./cloud-agnostic.md) | 多云迁移说明 |
 | [evolution.md](./evolution.md) | baseline→最终 指标演进 |

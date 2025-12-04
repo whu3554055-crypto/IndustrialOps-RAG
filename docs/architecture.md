@@ -88,6 +88,8 @@ flowchart TB
 
 `mutual_exclusive_gpu: true` 时同一时刻仅一个 Deployment 占用 GPU（KEDA 或 Helm 开关切换）。
 
+**M4 详解**（流程图、压测、KEDA、vLLM↔TRT 切换）：[m4_serving.md](./m4_serving.md)
+
 ## 5. 数据流（Ingest）
 
 ```
