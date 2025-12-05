@@ -1,4 +1,8 @@
-"""LangChain LCEL — hybrid + rerank 主链."""
+"""LangChain LCEL — hybrid + rerank 主链.
+
+M2/M3 共用：Agent 通过 hybrid_search 调用 mode=hybrid_rerank。
+16GB 本机：rerank 前 release_embedder()，见 docs/m3_agent.md §4。
+"""
 
 from __future__ import annotations
 

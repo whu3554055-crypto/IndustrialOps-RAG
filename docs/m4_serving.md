@@ -312,6 +312,8 @@ helm upgrade --install ior ./deploy/helm/industrial-ops-rag -f values-dev-single
 | 指标 | 拒答/引用/多轮 | TTFT/TPOT/QPS |
 | 本机 | exclusive 检索不 warm 正常 | 用 `--lite` |
 
+M3 Agent 管道见 [m3_agent.md](./m3_agent.md)。
+
 ---
 
 ## 12. 相关文档

@@ -128,7 +128,7 @@ async def generate_text(req: GenerateRequest) -> GenerateResponse:
     return GenerateResponse(content=content, backend=backend)
 
 
-@app.post("/v1/chat", response_model=ChatResponse)
+@app.post("/v1/chat", response_model=ChatResponse)  # M3: docs/m3_agent.md §6
 async def chat(req: ChatRequest) -> ChatResponse:
     try:
         result = await run_agentic_rag(req.session_id, req.query)

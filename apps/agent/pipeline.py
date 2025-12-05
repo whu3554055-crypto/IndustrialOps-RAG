@@ -1,4 +1,10 @@
-"""Agentic RAG 主管道 — LangChain 编排."""
+"""Agentic RAG 主管道 — LangChain 编排.
+
+学习文档：docs/m3_agent.md（流程图、拒答路径、verify_m3、profile 参数）
+
+入口：run_agentic_rag(session_id, query)
+  改写 → hybrid_rerank → 生成 → 自检（可选二次检索）→ 拒答或返回答案+citations
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,7 @@
-"""In-memory session history — M3 scaffold; M6+ 可换 PostgreSQL."""
+"""In-memory session history — M3 scaffold; M6+ 可换 PostgreSQL.
+
+见 docs/m3_agent.md §3.2：rewrite 用 history，generate 默认不用。
+"""
 
 from __future__ import annotations
 

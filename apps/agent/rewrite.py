@@ -1,4 +1,9 @@
-"""Multi-turn query rewrite."""
+"""Multi-turn query rewrite.
+
+无 history 时原样返回；有 history 时调 LLM 改写成独立问句。
+expand=True 用于自检失败后的二次检索（补全设备/故障指代）。
+文档：docs/m3_agent.md §3.2
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,9 @@
-"""M3 Agent 验收 — 库内问答、3 轮追问、库外拒答."""
+"""M3 Agent 验收 — 库内问答、3 轮追问、库外拒答.
+
+学习文档：docs/m3_agent.md §7
+Case1 库内+引用 | Case2 三轮追问(最慢) | Case3 库外拒答
+本机 exclusive 检索：单次 chat 可达数分钟，--timeout 默认 1200s/req。
+"""
 
 from __future__ import annotations
 
@@ -119,7 +124,12 @@ def _run_case_out_of_corpus(chat: Callable[..., dict], report: dict) -> bool:
 
 def main() -> int:
     global GATEWAY  # noqa: PLW0603
-    parser = argparse.ArgumentParser(description="M3 agent verification")
+    parser = argparse.ArgumentParser(
+        description="M3 Agent verification — /v1/chat 库内/追问/拒答",
+        epilog="示例: python scripts/verify_m3.py --case 2 --write-report\n"
+        "文档: docs/m3_agent.md §7",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("--gateway", default=GATEWAY)
     parser.add_argument(
         "--timeout",

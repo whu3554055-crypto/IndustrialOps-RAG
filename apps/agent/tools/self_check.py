@@ -1,4 +1,8 @@
-"""Retrieval confidence + answer faithfulness checks."""
+"""Retrieval confidence + answer faithfulness checks.
+
+MIN_RERANK_SCORE：BGE rerank 原始分阈值，低于则拒答（见 docs/m3_agent.md §8）。
+check_answer_supported：LLM 首行 YES/NO 判答案是否被 context 支持。
+"""
 
 from __future__ import annotations
 

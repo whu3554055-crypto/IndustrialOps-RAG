@@ -70,6 +70,8 @@ flowchart TB
 10. 响应：答案 + citations + `retrieval_log_id`
 11. 异步写入检索日志供排查
 
+**M3 详解**（流程图、拒答、多轮、verify_m3）：[m3_agent.md](./m3_agent.md)
+
 ## 3. 双编排分工
 
 | 框架 | 职责 |

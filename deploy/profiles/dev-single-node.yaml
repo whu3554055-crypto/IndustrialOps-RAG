@@ -93,13 +93,12 @@ retrieval:
     - sub_question
 
 agent:
-  max_history_turns: 3
-  include_history_in_generation: false
-  self_check_enabled: true
-  refuse_on_low_confidence: true
-  # context_top_k 默认取 retrieval.rerank_top_n；勿为验收单独压到 1
-  # max_chars_per_chunk: 仅当推理 context 低于 ingest chunk 时按需设置（边界截断）
-  # 本地 vLLM 请对齐本 profile llm.backends.vllm.max_model_len（4096），勿长期用 512
+  max_history_turns: 3  # rewrite 可见最近 N 轮；见 docs/m3_agent.md §5
+  include_history_in_generation: false  # true=生成也拼 history；默认 false（ADR）
+  self_check_enabled: true  # LLM 质检答案；关可省 1～3 次 vLLM 调用
+  refuse_on_low_confidence: true  # rerank top score < -2.0 直接拒答
+  # context_top_k: 缺省=retrieval.rerank_top_n(5)；勿为验收压到 1
+  # max_chars_per_chunk: context 超 max_model_len 时按边界截断单 chunk
 
 finetune:
   base_model: Qwen/Qwen2.5-7B-Instruct

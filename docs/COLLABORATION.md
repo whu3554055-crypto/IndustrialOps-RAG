@@ -246,6 +246,8 @@ python scripts/verify_m2.py --write-evolution
 
 ### 3.7.2 M3 Agent 验收
 
+> **学习文档**：[m3_agent.md](./m3_agent.md)（管道流程图、多轮 history、拒答、exclusive 检索、verify 参数）。
+
 前提：**vLLM 已起**（§3.5）+ **Gateway 已起**（§3.6）。本机 **勿改** 检索 `release_embedder` / `release_reranker`（16GB 上防 OOM）；慢是预期，用加长超时与分 case 验收即可。
 
 ```powershell
