@@ -1,7 +1,6 @@
 """LangChain tool: 混合检索.
 
-Agent 固定走 hybrid_rerank；context 条数由 profile agent.context_top_k 或 rerank_top_n 决定。
-CPU 模型分时加载见 docs/m3_agent.md §4。
+Agent 固定走 hybrid_rerank；检索链见 docs/m2_retrieval.md §3。
 """
 
 from __future__ import annotations

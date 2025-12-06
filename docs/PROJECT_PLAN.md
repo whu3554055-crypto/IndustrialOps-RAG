@@ -100,7 +100,9 @@
 | [architecture.md](./architecture.md) | 架构与时序 |
 | [job-requirements-mapping.md](./job-requirements-mapping.md) | 岗位要求逐条映射 |
 | [decisions.md](./decisions.md) | ADR 决策记录 |
-| [retrieval_modes.md](./retrieval_modes.md) | LlamaIndex/LangChain 检索模式与指标（M2） |
+| [m1_ingest.md](./m1_ingest.md) | **M1** 语料 ingest、Milvus+OpenSearch、验收（学习 hub） |
+| [retrieval_modes.md](./retrieval_modes.md) | M2 指标演进表 |
+| [m2_retrieval.md](./m2_retrieval.md) | **M2** 混合检索、RRF、Rerank、LlamaIndex 模式（学习 hub） |
 | [m3_agent.md](./m3_agent.md) | **M3** Agent 管道、多轮、拒答、引用（学习 hub） |
 | [finetune_pitfalls.md](./finetune_pitfalls.md) | 微调踩坑日记 |
 | [serving_benchmark.md](./serving_benchmark.md) | vLLM vs TRT 压测结果表 |

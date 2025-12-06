@@ -1,4 +1,8 @@
-"""M1 验收 — 10 题向量 + BM25 Top5 命中检查."""
+"""M1 验收 — 10 题向量 + BM25 Top5 命中检查.
+
+学习文档：docs/m1_ingest.md §7
+通过：Vector 与 BM25 各自 ≥8/10；不需 Gateway/vLLM。
+"""
 
 from __future__ import annotations
 
@@ -166,7 +170,12 @@ def append_evolution(results: list[CaseResult]) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="M1 retrieval acceptance (10 questions)")
+    parser = argparse.ArgumentParser(
+        description="M1 retrieval acceptance — vector + BM25 Top5 × 10 questions",
+        epilog="示例: python scripts/verify_m1.py --write-evolution\n"
+        "文档: docs/m1_ingest.md §7",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument(
         "--output",
         type=str,

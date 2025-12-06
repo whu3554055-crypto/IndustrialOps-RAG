@@ -169,7 +169,7 @@ async def _dispatch_search(query: str, mode: str, top_k: int) -> list[dict]:
     return hits[:top_k]
 
 
-@app.post("/v1/search", response_model=SearchResponse)
+@app.post("/v1/search", response_model=SearchResponse)  # M2: docs/m2_retrieval.md §5
 async def search(req: SearchRequest) -> SearchResponse:
     hits = await _dispatch_search(req.query, req.mode, req.top_k)
     return SearchResponse(query=req.query, mode=req.mode, hits=hits)

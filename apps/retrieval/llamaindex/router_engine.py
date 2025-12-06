@@ -1,4 +1,7 @@
-"""LlamaIndex RouterQueryEngine — 自动选检索模式."""
+"""LlamaIndex RouterQueryEngine — 自动选检索模式.
+
+规则：故障码/ALM 模式 → keyword；否则 hybrid_rerank。见 docs/m2_retrieval.md §4.2。
+"""
 
 from __future__ import annotations
 

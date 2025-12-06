@@ -2,7 +2,7 @@
 
 > **学习入口**：M3 流程、参数、验收用例集中在此。  
 > **操作命令**：[COLLABORATION.md](./COLLABORATION.md) §3.7.2。  
-> **检索基础**（M2）：[retrieval_modes.md](./retrieval_modes.md)。  
+> **检索基础**（M2）：[m2_retrieval.md](./m2_retrieval.md)（指标表 [retrieval_modes.md](./retrieval_modes.md)）。  
 > **推理层**（M4）：[m4_serving.md](./m4_serving.md)（M3 慢常来自检索+多次 LLM，不是 M4 压测对象）。
 
 ---

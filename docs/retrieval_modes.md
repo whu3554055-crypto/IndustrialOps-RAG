@@ -1,21 +1,10 @@
 # 检索模式与评测记录
 
-## LlamaIndex 模式（`apps/retrieval/llamaindex/`）
+> **学习文档**（流程图、模式说明、verify 参数）：[m2_retrieval.md](./m2_retrieval.md)
 
-| 模式 | 类/模块占位 | 适用查询 |
-|------|-------------|----------|
-| VectorStoreIndex | `vector_engine.py` | 现象描述、语义问法 |
-| BM25 / Keyword | `keyword_engine.py` | 故障码、型号 |
-| Summary Index | `summary_engine.py` | 章节级粗召回 |
-| Tree Index | `tree_engine.py` | 手册目录层级 |
-| Knowledge Graph | `graph_engine.py` | 部件关系 |
-| RouterQueryEngine | `router_engine.py` | 自动选路 |
-| SubQuestionQueryEngine | `subquestion_engine.py` | 复杂多步问题 |
+本文档保留 **Golden Set 指标演进表**；概念与架构详见 m2_retrieval。
 
-## LangChain 路径（`apps/retrieval/langchain/`）
-
-- Hybrid + RRF：`apps/retrieval/hybrid/`
-- Rerank：`apps/retrieval/rerank/`
+---
 
 ## Golden Set 指标表
 
@@ -35,4 +24,24 @@
 | `data/eval/golden.jsonl` | RAGAS faithfulness（需 `ground_truth`，见 `.example`） | 待构建 |
 
 - Recall@5 / P95：本地跑 `python scripts/verify_m2.py --write-evolution`，报告见 `reports/m2_verify.json`。
-- RAGAS faithfulness：待 M3+ Agent 管道与 `pipelines/evaluation/run_ragas.py` 实现后，构建 `golden.jsonl` 再跑 §3.8 命令填列。
+- RAGAS faithfulness：待构建 `golden.jsonl` 后跑 COLLABORATION §3.8。
+
+---
+
+## LlamaIndex 模式索引
+
+完整说明见 [m2_retrieval.md §4.2](./m2_retrieval.md#42-llamaindex-路径研究--gateway-扩展-mode)。
+
+| 模式 | 模块 |
+|------|------|
+| Vector | `vector_engine.py` |
+| BM25 / Keyword | `keyword_engine.py` |
+| Summary | `summary_engine.py` |
+| Tree | `tree_engine.py` |
+| Graph | `graph_engine.py` |
+| Router | `router_engine.py` |
+| SubQuestion | `subquestion_engine.py` |
+
+## LangChain 路径
+
+Hybrid + RRF + Rerank：`apps/retrieval/langchain/hybrid_chain.py` — 见 [m2_retrieval.md §3](./m2_retrieval.md#3-生产主链路hybrid_rerank)。

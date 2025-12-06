@@ -1,4 +1,7 @@
-"""Hybrid retrieval — Milvus + OpenSearch + RRF."""
+"""Hybrid retrieval — Milvus + OpenSearch + RRF.
+
+流程与 profile 参数：docs/m2_retrieval.md §3
+"""
 
 from __future__ import annotations
 

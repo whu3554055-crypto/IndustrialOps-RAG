@@ -1,4 +1,7 @@
-"""Reciprocal Rank Fusion."""
+"""Reciprocal Rank Fusion.
+
+score(chunk) += 1/(k+rank)；默认 k=60（profile retrieval.rrf_k）。
+"""
 
 from __future__ import annotations
 

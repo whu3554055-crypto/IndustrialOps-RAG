@@ -181,6 +181,8 @@ curl http://localhost:8080/v1/health
 
 ### 3.7 小样本 Ingest（≤20 文档，你代劳）
 
+> **学习文档**：[m1_ingest.md](./m1_ingest.md)（ingest 流程、双索引、切块、verify_m1）。
+
 ```powershell
 cd d:\repo\RAG
 .\.venv\Scripts\activate
@@ -205,6 +207,8 @@ python scripts/verify_m1.py --write-evolution
 通过：向量与 BM25 **各自** ≥8/10 命中。详情见 `reports/m1_verify.json`；聊天只贴终端汇总行。
 
 ### 3.7.1 M2 检索验收
+
+> **学习文档**：[m2_retrieval.md](./m2_retrieval.md)（hybrid_rerank 流程、RRF、模式表、verify 参数）。
 
 Gateway 自测（需 uvicorn 已起）。**勿用 `Invoke-RestMethod`**：Windows PowerShell 5.x 对中文 JSON 请求/响应易乱码。用 **curl** 或 **Python**：
 

@@ -69,21 +69,21 @@ llm:
       enabled: false  # 设为 true 并配 OPENAI_* 可做 GPT-4 等对照
 
 embedding:
-  model: BAAI/bge-m3
-  device: cpu
-  batch_size: 8
+  model: BAAI/bge-m3  # ingest + 检索共用；本地优先 models/bge-m3/
+  device: cpu  # 6GB GPU 留给 LLM
+  batch_size: 8  # run_ingest.py --batch-size 默认对齐
 
 rerank:
   model: BAAI/bge-reranker-v2-m3
   device: cpu
-  top_n: 5
+  top_n: 5  # 与 retrieval.rerank_top_n 对齐
 
 retrieval:
-  vector_top_k: 20
-  bm25_top_k: 20
-  rrf_k: 60
-  rerank_top_n: 5
-  llamaindex_modes:
+  vector_top_k: 20  # Milvus 召回；见 docs/m2_retrieval.md §6
+  bm25_top_k: 20    # OpenSearch 召回
+  rrf_k: 60         # RRF 平滑常数 k
+  rerank_top_n: 5   # 最终条数；M3 context 默认同源
+  llamaindex_modes:  # Gateway /v1/search 可选的 LI 模式列表
     - vector
     - bm25
     - summary

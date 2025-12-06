@@ -1,4 +1,7 @@
-"""Shared vector / BM25 retrieval against Milvus + OpenSearch."""
+"""Shared vector / BM25 retrieval against Milvus + OpenSearch.
+
+M2 底层：vector_search / bm25_search；exclusive 内存见 docs/m2_retrieval.md §3.3。
+"""
 
 from __future__ import annotations
 

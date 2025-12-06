@@ -1,4 +1,7 @@
-"""Load raw documents from data/raw (M1: md/txt)."""
+"""Load raw documents from data/raw (M1: md/txt).
+
+跳过 README.md；title 取首行 # 标题。见 docs/m1_ingest.md §4。
+"""
 
 from dataclasses import dataclass
 from pathlib import Path

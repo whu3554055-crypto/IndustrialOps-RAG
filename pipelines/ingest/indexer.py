@@ -1,4 +1,7 @@
-"""Milvus dense + OpenSearch BM25 indexing."""
+"""Milvus dense + OpenSearch BM25 indexing.
+
+schema 与 verify_m1 / M2 retrieval 共用字段；见 docs/m1_ingest.md §3。
+"""
 
 from __future__ import annotations
 

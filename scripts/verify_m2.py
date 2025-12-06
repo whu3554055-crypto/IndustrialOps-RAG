@@ -1,4 +1,8 @@
-"""M2 检索验收 — golden Top5 Recall + 多模式对比."""
+"""M2 检索验收 — golden Top5 Recall + 多模式对比.
+
+学习文档：docs/m2_retrieval.md §7
+通过线：hybrid_rerank Recall@5 ≥ 8/10（data/eval/m2_golden.jsonl）
+"""
 
 from __future__ import annotations
 
@@ -127,7 +131,12 @@ def write_outputs(results: list[dict], json_path: Path, write_evolution: bool) -
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="M2 retrieval benchmark")
+    parser = argparse.ArgumentParser(
+        description="M2 retrieval benchmark — 5 modes × golden Recall@5",
+        epilog="示例: python scripts/verify_m2.py --write-evolution\n"
+        "文档: docs/m2_retrieval.md §7",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("--golden", type=str, default="data/eval/m2_golden.jsonl")
     parser.add_argument("--output", type=str, default="reports/m2_verify.json")
     parser.add_argument("--write-evolution", action="store_true")

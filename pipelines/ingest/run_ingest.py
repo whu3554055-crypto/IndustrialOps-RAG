@@ -1,4 +1,8 @@
-"""Ingest CLI — 解析 → 切块 → Milvus + OpenSearch."""
+"""Ingest CLI — 解析 → 切块 → Milvus + OpenSearch.
+
+学习文档：docs/m1_ingest.md §5
+默认：data/raw → bge-m3 embedding → 双索引 recreate
+"""
 
 from __future__ import annotations
 
@@ -13,7 +17,12 @@ from pipelines.ingest.indexer import Embedder, MilvusIndexer, OpenSearchIndexer,
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="IndustrialOps-RAG ingest")
+    parser = argparse.ArgumentParser(
+        description="IndustrialOps-RAG ingest — md/txt → Milvus + OpenSearch",
+        epilog="示例: python pipelines/ingest/run_ingest.py --input data/raw --batch-size 8\n"
+        "文档: docs/m1_ingest.md §5",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("--input", type=str, default="data/raw", help="原始文档目录")
     parser.add_argument("--batch-size", type=int, default=8, help="embedding batch size")
     parser.add_argument(

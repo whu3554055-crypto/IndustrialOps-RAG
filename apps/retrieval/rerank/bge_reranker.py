@@ -1,4 +1,7 @@
-"""BGE reranker — 默认 CPU（见 profile）."""
+"""BGE reranker — 默认 CPU（见 profile）.
+
+rerank 后 top_n 供 M3 context；release_reranker 与 embedder 分时，见 docs/m2_retrieval.md §3.3。
+"""
 
 from __future__ import annotations
 

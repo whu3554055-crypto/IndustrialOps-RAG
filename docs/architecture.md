@@ -79,7 +79,9 @@ flowchart TB
 | **LangChain** | 生产主链路：Agent、Tools、LCEL、与 Gateway 集成 |
 | **LlamaIndex** | 检索模式研究与对比：Vector/Summary/Tree/Graph/Router/SubQuestion |
 
-两路检索结果可在 Router 层融合或 A/B 评测（见 `retrieval_modes.md`）。
+两路检索结果可在 Router 层融合或 A/B 评测（见 [m2_retrieval.md](./m2_retrieval.md)）。
+
+**M2 详解**（hybrid_rerank、RRF、verify_m2）：[m2_retrieval.md](./m2_retrieval.md)
 
 ## 4. 推理双引擎
 
@@ -94,9 +96,11 @@ flowchart TB
 
 ## 5. 数据流（Ingest）
 
+**M1 详解**（流程图、参数、verify）：[m1_ingest.md](./m1_ingest.md)
+
 ```
 原始文档(PDF/MD/DOCX)
-  → deepdoc 解析（RAGFlow 思路：版面/表格）
+  → deepdoc 解析（RAGFlow 思路：版面/表格）— M1 当前为 md/txt
   → 切块 + 中文 metadata(device_model, fault_code, ...)
   → Embedding(bge-m3) → Milvus
   → 全文/BM25 索引 → OpenSearch

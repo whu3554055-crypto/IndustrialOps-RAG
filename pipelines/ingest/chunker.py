@@ -1,4 +1,7 @@
-"""Text chunking with Chinese-friendly separators."""
+"""Text chunking with Chinese-friendly separators.
+
+默认 512 字 / overlap 64；分隔符优先段落与中文句号。docs/m1_ingest.md §4.2
+"""
 
 from dataclasses import dataclass
 
