@@ -16,7 +16,7 @@
 
 | 里程碑 | 学习 hub | 状态 |
 |--------|----------|------|
-| M0 | `docs/m0_infra.md` | 待补 |
+| M0 | [m0_infra.md](../m0_infra.md) | **已完成** |
 | M1 | [m1_ingest.md](../m1_ingest.md) | **已完成** |
 | M2 | [m2_retrieval.md](../m2_retrieval.md) | **已完成**（指标表见 retrieval_modes.md） |
 | M3 | [m3_agent.md](../m3_agent.md) | **已完成** |

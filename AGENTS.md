@@ -21,4 +21,4 @@
 
 ## 当前状态
 
-M0–M4 文档：`docs/milestones/README.md`。M1 ingest → [m1_ingest.md](docs/m1_ingest.md)；M2 → [m2_retrieval.md](docs/m2_retrieval.md)；M3 → [m3_agent.md](docs/m3_agent.md)；M4 → [m4_serving.md](docs/m4_serving.md)。
+M0–M4 学习 hub 齐全：见 [docs/milestones/README.md](docs/milestones/README.md)。验收：`verify_m0.py` … `verify_m4.py`。

@@ -1,7 +1,8 @@
 # M1 — 语料 Ingest、Milvus + OpenSearch、metadata 中文
 
 > **学习入口**：M1 入库链路、索引结构、验收集中在此。  
-> **操作命令**：[COLLABORATION.md](./COLLABORATION.md) §3.7。  
+> **前提 M0**：[m0_infra.md](./m0_infra.md)（Compose Milvus + OpenSearch）。  
+> **操作命令**：[COLLABORATION.md](./COLLABORATION.md) §3.7。
 > **指标演进**：ingest 通过后 `--write-evolution` 写入 [evolution.md](./evolution.md)。  
 > **下游 M2**：[m2_retrieval.md](./m2_retrieval.md)（混合检索依赖本里程碑索引）。
 

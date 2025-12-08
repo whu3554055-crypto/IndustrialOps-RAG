@@ -1,6 +1,7 @@
 # Helm Chart — industrial-ops-rag
 
-可执行步骤见 [docs/COLLABORATION.md](../../docs/COLLABORATION.md) §3.3（M0 步骤 3）。
+> **M0 学习**：[docs/m0_infra.md](../../docs/m0_infra.md) §6（k3d、GPU、Helm、启服顺序）。  
+> **可执行步骤**：[COLLABORATION.md](../../docs/COLLABORATION.md) §3.3。
 
 ## 安装（单机 dev）
 
@@ -18,19 +19,16 @@ helm upgrade --install ior ./deploy/helm/industrial-ops-rag \
 
 # M0 验收
 kubectl -n industrial-ops get pods
+python scripts/verify_m0.py --skip-compose --write-report  # profile 层
 ```
 
 ## 启服顺序
 
-见 `deploy/profiles/dev-single-node.yaml` → `startup_order`
+见 `deploy/profiles/dev-single-node.yaml` → `startup_order`（[m0_infra.md §4.1](../../docs/m0_infra.md#41-startup_orderk8s-分时启服)）
 
 ## GPU 互斥切换 TensorRT-LLM
 
-```bash
-# 缩容 vLLM，启用 TRT（示例，具体以 values 为准）
-kubectl -n industrial-ops scale deployment ior-vllm --replicas=0
-kubectl -n industrial-ops scale deployment ior-tensorrt-llm --replicas=1
-```
+见 [m4_serving.md §3.2](../../docs/m4_serving.md#32-vllm--tensorrt-llm-分时切换6gb-单卡)
 
 ## 与 profile 对齐
 

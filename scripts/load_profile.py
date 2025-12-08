@@ -1,4 +1,8 @@
-"""打印当前 profile 配置（校验 YAML）."""
+"""打印当前 profile 配置（校验 YAML）.
+
+学习：docs/m0_infra.md §4
+用法: python scripts/load_profile.py [profile_name]
+"""
 
 import json
 import sys

@@ -43,6 +43,8 @@ Agent **不得擅自**做下列事；须先说明「为何费 token + 预估范�
 
 ### 3.1 环境（一次性）
 
+> **学习文档**：[m0_infra.md](./m0_infra.md) §7。
+
 ```powershell
 cd d:\repo\RAG
 python -m venv .venv
@@ -55,6 +57,8 @@ copy .env.example .env
 
 ### 3.2 中间件（Compose）
 
+> **学习文档**：[m0_infra.md](./m0_infra.md) §5。
+
 ```powershell
 cd d:\repo\RAG
 docker compose -f deploy/compose/docker-compose.yml up -d
@@ -66,6 +70,8 @@ docker compose -f deploy/compose/docker-compose.yml ps
 **省 token**：只回复 `ps` 里 unhealthy 的行，不要贴 `docker compose logs` 全文（可先本地 `logs --tail 50`）。
 
 ### 3.3 K8s 集群 + Helm（M0 步骤 3）
+
+> **学习文档**：[m0_infra.md](./m0_infra.md) §6。
 
 对应 [PROJECT_PLAN.md](./PROJECT_PLAN.md) §9 第 3 步；Chart 细节见 [deploy/helm/industrial-ops-rag/README.md](../deploy/helm/industrial-ops-rag/README.md)。
 
@@ -101,10 +107,11 @@ helm upgrade --install ior ./deploy/helm/industrial-ops-rag `
 **Step 4 — 验收（M0）**
 
 ```powershell
+python scripts/verify_m0.py --write-report
 kubectl -n industrial-ops get pods
 ```
 
-目标：分时启服后 `kubectl get pods` 全绿；启服顺序见 `deploy/profiles/dev-single-node.yaml` → `startup_order`。镜像未本地 build 时可能 `ImagePullBackOff`，见 Chart README。
+目标：Compose/`verify_m0` profile+中间件 PASS；K8s 分时启服后 `kubectl get pods` 全绿。启服顺序见 `deploy/profiles/dev-single-node.yaml` → `startup_order`。镜像未本地 build 时可能 `ImagePullBackOff`，见 Chart README；**可先走 Compose 路径完成 M1–M4**。
 
 **省 token**：排障只贴 `kubectl describe pod <name>` 的 Events + `logs --tail=40`，勿贴全文。
 

@@ -6,6 +6,8 @@
 
 | 文档 | 说明 |
 |------|------|
+| [docs/m0_infra.md](docs/m0_infra.md) | **M0 基础设施**（Profile、Compose、K8s） |
+| [docs/m1_ingest.md](docs/m1_ingest.md) | M1 ingest |
 | [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) | **总方案（必读）** |
 | [docs/COLLABORATION.md](docs/COLLABORATION.md) | **对话 token 拍板** + 用户代劳命令 + 省 token 提醒 |
 | [docs/architecture.md](docs/architecture.md) | 架构与时序 |
@@ -26,6 +28,8 @@ tests/
 ```
 
 ## 快速开始（M0）
+
+详见 [docs/m0_infra.md](docs/m0_infra.md)（Compose 路径 vs K8s 路径）。
 
 ```bash
 # 1. 环境

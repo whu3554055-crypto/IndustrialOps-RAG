@@ -100,6 +100,7 @@
 | [architecture.md](./architecture.md) | 架构与时序 |
 | [job-requirements-mapping.md](./job-requirements-mapping.md) | 岗位要求逐条映射 |
 | [decisions.md](./decisions.md) | ADR 决策记录 |
+| [m0_infra.md](./m0_infra.md) | **M0** 基础设施、Profile、Compose、K8s/Helm（学习 hub） |
 | [m1_ingest.md](./m1_ingest.md) | **M1** 语料 ingest、Milvus+OpenSearch、验收（学习 hub） |
 | [retrieval_modes.md](./retrieval_modes.md) | M2 指标演进表 |
 | [m2_retrieval.md](./m2_retrieval.md) | **M2** 混合检索、RRF、Rerank、LlamaIndex 模式（学习 hub） |

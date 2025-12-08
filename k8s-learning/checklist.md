@@ -1,5 +1,7 @@
 # Kubernetes 学习打卡（绑定 IndustrialOps-RAG）
 
+> M0 操作与启服顺序：[docs/m0_infra.md](../docs/m0_infra.md) §6
+
 完成即在 `[ ]` 填 `x`，并注明对应仓库文件/命令。
 
 ## 工作负载

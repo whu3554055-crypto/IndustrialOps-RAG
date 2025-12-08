@@ -1,11 +1,12 @@
 # IndustrialOps-RAG — 单机开发档（架构全量，数值压缩）
 # 单一事实来源；Helm values 应与此对齐
+# 学习：docs/m0_infra.md §4
 
 profile: dev-single-node
 
 cluster:
   node_count: 1
-  kubernetes_distribution: k3d  # kind | k3d | minikube
+  kubernetes_distribution: k3d  # kind | k3d | minikube；见 m0_infra.md §6
 
 gpu:
   count: 1
@@ -14,11 +15,11 @@ gpu:
 
 services:
   milvus:
-    enabled: true
+    enabled: true  # M1 ingest 必须；Compose ior-milvus:19530
     requests_memory: 1Gi
     limits_memory: 2Gi
   opensearch:
-    enabled: true
+    enabled: true  # M1 ingest 必须；Compose :9200
     requests_memory: 512Mi
     limits_memory: 1Gi
     java_opts: "-Xms512m -Xmx512m"
@@ -123,6 +124,7 @@ keda:
     ragas_parallelism: 1
 
 startup_order:
+  # K8s 分时启服顺序；本机 Compose 可并行 up，vLLM 单独 Docker — m0_infra.md §4.1
   - postgresql
   - redis
   - minio

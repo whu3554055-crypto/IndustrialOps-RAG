@@ -1,5 +1,7 @@
 # 系统架构
 
+**M0 详解**（双路径、profile、Compose、K8s）：[m0_infra.md](./m0_infra.md)
+
 ## 1. 总览
 
 IndustrialOps-RAG 采用分层微服务形态，Kubernetes 为最终运行环境；本地通过 `dev-single-node` profile 在单节点上启用**全部组件**（通过资源 limits 与 GPU 互斥保证可启动）。
