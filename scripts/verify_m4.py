@@ -71,12 +71,23 @@ def _case_gateway_backends(gateway: str, report: dict) -> bool:
         with urllib.request.urlopen(url, timeout=15) as resp:
             data = json.loads(resp.read().decode("utf-8"))
         backends = data.get("backends", [])
-        active = [b for b in backends if b.get("active")]
         ok = len(backends) >= 2 and any(b.get("reachable") for b in backends if b.get("active"))
         detail = f"{len(backends)} backends, active reachable={ok}"
         _check("GET /v1/llm/backends", ok, detail)
         report["cases"].append({"name": "gateway_backends", "response": data, "ok": ok})
         return ok
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            err = (
+                "HTTP 404 — 当前 Gateway 无 /v1/llm/backends（M4 端点）。"
+                "请停掉旧 uvicorn 后重启：uvicorn apps.gateway.main:app --host 0.0.0.0 --port 8080"
+            )
+        else:
+            body = exc.read().decode("utf-8", errors="replace")[:120]
+            err = f"HTTP {exc.code}: {body}"
+        _check("GET /v1/llm/backends", False, err)
+        report["cases"].append({"name": "gateway_backends", "error": err, "ok": False})
+        return False
     except urllib.error.URLError as exc:
         err = str(exc.reason) if hasattr(exc, "reason") else str(exc)
         _check("GET /v1/llm/backends", False, err[:120])
