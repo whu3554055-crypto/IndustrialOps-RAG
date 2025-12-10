@@ -1,7 +1,7 @@
 # TensorRT-LLM 服务
 
 > **M4 学习**：[docs/m4_serving.md](../docs/m4_serving.md)（含 vLLM↔TRT 切换流程图）。  
-> **压测回填**：[serving_benchmark.md](../docs/serving_benchmark.md)。
+> **M4 用户操作**（TRT 行 + K8s/KEDA）：[m4_user_runbook.md](../docs/m4_user_runbook.md)
 
 与 vLLM **GPU 互斥**（`mutual_exclusive_gpu: true`）。架构保留双引擎，6GB 本机 **分时** 使用。
 

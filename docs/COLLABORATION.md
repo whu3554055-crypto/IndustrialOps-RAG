@@ -287,6 +287,7 @@ python scripts/verify_m3.py --case 2 --write-report
 
 ### 3.7.3 M4 Serving / Router 验收
 
+> **用户操作手册**（TRT 压测 + K8s/KEDA 安装）：[m4_user_runbook.md](./m4_user_runbook.md)  
 > **学习文档**：[m4_serving.md](./m4_serving.md)（流程图、参数表、vLLM↔TRT 切换、KEDA 说明）。
 
 前提：**vLLM 已起**（§3.5）。Gateway 可选（验 `/v1/llm/backends` 时需起 §3.6）。
