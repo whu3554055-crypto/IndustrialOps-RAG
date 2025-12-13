@@ -160,10 +160,117 @@ docker run --gpus all --ipc=host -d --name trt-llm-serve -p 8001:8000 `
 
 ---
 
-## Phase 3 — K8s（k3d）+ KEDA（约 30 分钟，PowerShell）
+## Phase 3 — K8s（k3d）+ KEDA（约 30 分钟）
 
 > **16GB 注意**：装 k3d 当天 **不要** 同时跑 M3 全量压测；Compose 可保留，勿再起第二个 vLLM。  
 > **M6 之前**日常开发 **不依赖** K8s；装一次即可闭环 M0/M4 架构。
+
+### 路径选择（拍板）
+
+| 路径 | 终端 | GPU in K8s | 说明 |
+|------|------|------------|------|
+| **B（推荐）** | **WSL2 Ubuntu** | 高概率 | 见下方 **Phase 3 — WSL2** |
+| A | Windows PowerShell | 不保证 | 仅 KEDA/Helm 接线；GPU 留 Compose |
+
+Windows 原生 `k3d + device plugin` 在 Docker Desktop 上常遇 NVML/CDI 问题；**需要 `nvidia.com/gpu` 时请走 WSL2**。
+
+---
+
+### Phase 3 — WSL2（方案 B，推荐）
+
+**前提**：已安装 **Ubuntu 22.04**（`wsl -l -v` 中除 `docker-desktop` 外应有一个 Ubuntu）。若无：
+
+```powershell
+# 管理员 PowerShell，装完需重启
+wsl --install -d Ubuntu-22.04
+```
+
+**0 — 清理 Windows 侧旧集群（避免同名冲突）**
+
+在 **PowerShell**：
+
+```powershell
+k3d cluster delete industrial-rag
+```
+
+**1 — 打开 Ubuntu 终端**，进入仓库（Docker Desktop 须已启用 WSL integration）：
+
+```bash
+cd /mnt/d/repo/RAG
+docker run --rm --gpus all nvidia/cuda:12.3.0-base-ubuntu22.04 nvidia-smi
+```
+
+上一条必须成功，否则先修 WSL GPU（NVIDIA 驱动 + Docker Desktop → Settings → Resources → WSL integration）。
+
+**2 — 安装 CLI（仅首次）**
+
+```bash
+# k3d
+curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+# kubectl
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+# helm
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+```
+
+**3 — 建集群（带 Docker Hub 镜像加速）**
+
+```bash
+k3d cluster create industrial-rag \
+  --agents 1 \
+  --gpus 1 \
+  --registry-config /mnt/d/repo/RAG/deploy/k3d/registries-mirror.yaml
+kubectl get nodes
+```
+
+**4 — GPU Device Plugin**
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/v0.14.5/nvidia-device-plugin.yml
+kubectl -n kube-system rollout status daemonset/nvidia-device-plugin-daemonset --timeout=300s
+kubectl describe node | grep nvidia.com/gpu
+```
+
+**成功标准**：输出含 `nvidia.com/gpu: 1`。
+
+**5 — KEDA**
+
+```bash
+helm repo add kedacore https://kedacore.github.io/charts
+helm repo update
+helm install keda kedacore/keda -n keda --create-namespace
+kubectl get pods -n keda
+```
+
+**6 — 本项目 Chart**
+
+```bash
+cd /mnt/d/repo/RAG
+helm upgrade --install ior ./deploy/helm/industrial-ops-rag \
+  -f ./deploy/helm/industrial-ops-rag/values-dev-single-node.yaml \
+  -n industrial-ops --create-namespace
+```
+
+**7 — 验收**（可在 Windows PowerShell 用同一 kubeconfig，或 WSL 内装 Python venv）
+
+```bash
+kubectl -n industrial-ops get scaledobject
+kubectl -n industrial-ops get pods
+```
+
+Windows 侧（若 `kubectl` 已指向 WSL 建的集群）：
+
+```powershell
+cd d:\repo\RAG
+.\.venv\Scripts\activate
+python scripts/verify_m0.py --skip-compose --write-report
+python scripts/verify_m4.py --skip-gateway --write-report
+```
+
+---
+
+### Phase 3 — Windows PowerShell（方案 A，仅 KEDA 接线）
 
 ### Step 1 — 安装 CLI（仅首次，缺哪个装哪个）
 
@@ -175,10 +282,13 @@ choco install k3d kubernetes-helm kubernetes-cli -y
 ### Step 2 — 建集群
 
 ```powershell
-k3d cluster create industrial-rag --agents 1 --gpus all
+k3d cluster create industrial-rag --agents 1 --gpus all `
+  --registry-config D:\repo\RAG\deploy\k3d\registries-mirror.yaml
 kubectl cluster-info
 kubectl get nodes
 ```
+
+> GPU in K8s 不保证；需 `nvidia.com/gpu` 请改走上文 **Phase 3 — WSL2**。
 
 ### Step 3 — GPU Device Plugin
 
