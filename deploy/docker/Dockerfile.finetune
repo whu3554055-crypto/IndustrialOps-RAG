@@ -1,0 +1,25 @@
+# QLoRA 线上训练镜像 — 配合 deploy/compose/docker-compose.finetune.yml
+# 构建上下文：仓库根目录
+
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    HF_HOME=/workspace/.cache/huggingface
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 python3-pip python3-venv git \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+
+COPY pyproject.toml README.md ./
+COPY apps/config.py apps/__init__.py ./apps/
+COPY pipelines/finetune ./pipelines/finetune/
+COPY deploy/profiles/train-gpu-24g.yaml ./deploy/profiles/train-gpu-24g.yaml
+
+RUN pip3 install --upgrade pip && pip3 install -e .
+
+# 运行时挂载 data/、models/
+ENTRYPOINT ["python3", "pipelines/finetune/train_qlora.py"]

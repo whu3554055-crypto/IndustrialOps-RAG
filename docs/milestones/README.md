@@ -21,7 +21,8 @@
 | M2 | [m2_retrieval.md](../m2_retrieval.md) | **已完成**（指标表见 retrieval_modes.md） |
 | M3 | [m3_agent.md](../m3_agent.md) | **已完成** |
 | **M4** | **[m4_serving.md](../m4_serving.md)** | **已完成** |
-| M5+ | 按 PROJECT_PLAN 推进 | — |
+| **M5** | **[m5_finetune.md](../m5_finetune.md)** + [m5_online_train.md](../m5_online_train.md) | **本地完整**；epoch 在 [线上 4090](../m5_online_train.md) |
+| M6+ | 按 PROJECT_PLAN 推进 | — |
 
 ## 新里程碑 Agent  checklist
 

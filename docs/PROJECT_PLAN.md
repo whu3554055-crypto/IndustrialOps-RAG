@@ -108,6 +108,8 @@
 | [finetune_pitfalls.md](./finetune_pitfalls.md) | 微调踩坑日记 |
 | [serving_benchmark.md](./serving_benchmark.md) | vLLM vs TRT 压测结果表 |
 | [m4_serving.md](./m4_serving.md) | **M4** 推理 Router、KEDA、压测、引擎切换（学习 hub） |
+| [m5_finetune.md](./m5_finetune.md) | **M5** QLoRA、SFT 数据、RAG/SFT 对比（学习 hub） |
+| [m5_online_train.md](./m5_online_train.md) | **M5** 线上 24GB 完整 epoch（AutoDL 4090 等） |
 | [milestones/README.md](./milestones/README.md) | 各里程碑文档层级约定 |
 | [scaling-data.md](./scaling-data.md) | 2k→100k 数据扩展 |
 | [cloud-agnostic.md](./cloud-agnostic.md) | 多云迁移说明 |

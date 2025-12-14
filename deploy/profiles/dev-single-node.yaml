@@ -102,15 +102,18 @@ agent:
   # max_chars_per_chunk: context 超 max_model_len 时按边界截断单 chunk
 
 finetune:
-  base_model: Qwen/Qwen2.5-7B-Instruct
-  dataset_max_samples: 5000
+  base_model: Qwen/Qwen2.5-7B-Instruct  # 训练用全精度 HF；推理 AWQ 见 m5_finetune.md
+  dataset_max_samples: 5000  # 调试可改小；见 train_qlora --max-samples
   qlora_r: 8
   qlora_alpha: 16
-  max_seq_length: 2048
+  lora_dropout: 0.05
+  max_seq_length: 2048  # 6GB OOM 时改为 1024
   per_device_train_batch_size: 1
-  gradient_accumulation_steps: 16
+  gradient_accumulation_steps: 16  # 有效 batch = 1×16
   gradient_checkpointing: true
   bnb_4bit: true
+  learning_rate: 2.0e-4
+  num_train_epochs: 1
 
 keda:
   enabled: true  # K8s 自动扩缩 vLLM；本机 Docker 可不装 KEDA，验收只查此项为 true

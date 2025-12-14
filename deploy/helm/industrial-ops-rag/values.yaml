@@ -82,3 +82,15 @@ evaluation:
 finetune:
   trainJob:
     enabled: false
+    profile: train-gpu-24g
+    hfHome: /cache/huggingface
+    backoffLimit: 0
+    activeDeadlineSeconds: 86400
+    datasetPath: data/processed/sft_train.jsonl
+    outputDir: /models/qlora-adapter
+    image:
+      repository: industrial-ops-rag/gateway
+      tag: "0.1.0"
+    resources:
+      limits:
+        nvidia.com/gpu: 1

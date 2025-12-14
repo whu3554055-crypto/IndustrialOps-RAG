@@ -11,8 +11,8 @@
 | 混合检索 BM25+向量 | `apps/retrieval/hybrid/`, OpenSearch | scaffold |
 | BGE-reranker | `apps/retrieval/rerank/` | scaffold |
 | Llama2/Qwen/GPT-4 | `serving/vllm`, `serving/tensorrt-llm`, API 配置 | scaffold |
-| LoRA/QLoRA | `pipelines/finetune/` | scaffold |
-| Transformers | `pipelines/finetune/train_qlora.py` | scaffold |
+| LoRA/QLoRA | `pipelines/finetune/` | **M5** `train_qlora.py` |
+| Transformers | `pipelines/finetune/train_qlora.py` | **M5** profile 驱动 |
 | Python FastAPI | `apps/gateway/` | scaffold |
 | MySQL/PostgreSQL | `deploy/.../postgresql`, Gateway models | scaffold |
 | Docker | `deploy/compose/docker-compose.yml` | scaffold |

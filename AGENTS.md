@@ -21,4 +21,4 @@
 
 ## 当前状态
 
-M0–M4 学习 hub 齐全：见 [docs/milestones/README.md](docs/milestones/README.md)。验收：`verify_m0.py` … `verify_m4.py`。
+M0–M4 已完成；**M5 进行中**：见 [docs/m5_finetune.md](docs/m5_finetune.md)。验收：`verify_m0.py` … `verify_m5.py`。

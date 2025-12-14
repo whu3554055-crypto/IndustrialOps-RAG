@@ -1,0 +1,16 @@
+# 仅用于线上 GPU 训练（train_qlora.py --profile train-gpu-24g）
+# 勿在 6GB 本机用此 profile 跑完整 epoch；见 docs/m5_online_train.md
+
+finetune:
+  base_model: Qwen/Qwen2.5-7B-Instruct
+  dataset_max_samples: 5000
+  qlora_r: 16
+  qlora_alpha: 32
+  lora_dropout: 0.05
+  max_seq_length: 4096
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 8
+  gradient_checkpointing: true
+  bnb_4bit: true
+  learning_rate: 1.0e-4
+  num_train_epochs: 2

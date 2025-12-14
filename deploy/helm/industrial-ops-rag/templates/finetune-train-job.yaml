@@ -1,0 +1,38 @@
+{{- if .Values.finetune.trainJob.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "ior.fullname" . }}-qlora-train
+  labels:
+    {{- include "ior.labels" . | nindent 4 }}
+    app.kubernetes.io/component: finetune
+spec:
+  backoffLimit: {{ .Values.finetune.trainJob.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.finetune.trainJob.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: finetune
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: train
+          image: "{{ .Values.finetune.trainJob.image.repository }}:{{ .Values.finetune.trainJob.image.tag }}"
+          env:
+            - name: IOR_PROFILE
+              value: {{ .Values.finetune.trainJob.profile | quote }}
+            - name: HF_HOME
+              value: {{ .Values.finetune.trainJob.hfHome | quote }}
+          command:
+            - python
+            - pipelines/finetune/train_qlora.py
+            - --profile
+            - {{ .Values.finetune.trainJob.profile | quote }}
+            - --dataset
+            - {{ .Values.finetune.trainJob.datasetPath | quote }}
+            - --output-dir
+            - {{ .Values.finetune.trainJob.outputDir | quote }}
+          resources:
+            {{- toYaml .Values.finetune.trainJob.resources | nindent 12 }}
+{{- end }}

@@ -315,14 +315,62 @@ python pipelines/evaluation/run_ragas.py --golden data/eval/golden.jsonl --outpu
 
 **省 token**：把 `reports/ragas_report.json` 留在磁盘；聊天只贴 **汇总 5 个指标数字**。
 
-### 3.9 QLoRA 训练（实现后，训练前关掉 vLLM）
+### 3.9 QLoRA 训练（M5）
+
+> **学习文档**：[m5_finetune.md](./m5_finetune.md)。
 
 ```powershell
-# 先停 vLLM 进程释放 GPU
+copy data\processed\sft.jsonl.example data\processed\sft.jsonl
+# 先停 vLLM / Docker 释放 GPU（与 M4 分时）
+python pipelines/finetune/train_qlora.py --dry-run
 python pipelines/finetune/train_qlora.py --dataset data/processed/sft.jsonl --output-dir models/qlora-adapter
+# 冒烟（数分钟级，仍须 GPU）：
+python pipelines/finetune/train_qlora.py --max-samples 32 --max-steps 10
 ```
 
 **省 token**：训练曲线用本地 tensorboard/wandb；别让 Agent 解读 200 行 epoch log。
+
+### 3.9.1 M5 验收
+
+```powershell
+python scripts/verify_m5.py --write-report
+pytest tests/test_finetune_m5.py -q
+```
+
+RAGAS 前后对比（M6 实装前可手写 `reports/ragas_*.json` 五指标）：
+
+```powershell
+python pipelines/evaluation/run_ragas.py --golden data/eval/golden.jsonl --output reports/ragas_before.json
+# 训练 + 加载 adapter 后
+python pipelines/evaluation/run_ragas.py --golden data/eval/golden.jsonl --output reports/ragas_after.json
+python scripts/verify_m5.py --check-ragas --write-report
+```
+
+通过：`verify_m5` 无 GPU 用例全 PASS；完整闭环见 [m5_finetune.md](./m5_finetune.md) §9。
+
+### 3.9.2 M5 线上完整 Epoch（不在 6GB 本机跑）
+
+> **步骤全文**：[m5_online_train.md](./m5_online_train.md)（推荐 **AutoDL RTX 4090 24GB** + profile `train-gpu-24g`）。
+
+本机准备：
+
+```powershell
+python scripts/split_sft_by_doc_id.py --input data/processed/sft.jsonl `
+  --train-out data/processed/sft_train.jsonl --holdout-out data/processed/sft_holdout.jsonl
+python scripts/init_ragas_reports.py --phase before
+python scripts/prepare_m5_online_bundle.py
+```
+
+线上（SSH 到 GPU 机后，节选）：
+
+```bash
+export HF_ENDPOINT=https://hf-mirror.com   # 国内可选
+python pipelines/finetune/train_qlora.py --profile train-gpu-24g \
+  --dataset data/processed/sft_train.jsonl --output-dir models/qlora-adapter
+tar czvf qlora-adapter.tgz -C models qlora-adapter
+```
+
+回传后：`init_ragas_reports.py --phase after`（或真 RAGAS）→ `compare_ragas.py` → `verify_m5.py --check-ragas`。
 
 ### 3.10 查看 profile（无需 Agent）
 

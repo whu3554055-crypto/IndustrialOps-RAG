@@ -17,5 +17,8 @@
 | 2026-05-31 | vLLM `served_model_id` 与 OpenAI API 对齐 | `GET /v1/models` 的 id 写入 profile / `VLLM_MODEL`，非 HF 仓库名 |
 | 2026-05-31 | M4 压测走 streaming TTFT | `scripts/benchmark_serving.py` 直连 OpenAI 兼容 API，不经 RAG 管道 |
 | 2026-05-31 | 里程碑文档分层 L1–L5 | 学习 hub `docs/m{N}_*.md` + 代码 docstring 指向；见 `docs/milestones/README.md` |
+| 2026-05-31 | M5 训练用全精度 Qwen2.5-7B-Instruct | AWQ 仅推理；QLoRA adapter 与 vLLM 加载路径见 `finetune_pitfalls.md` #7 |
+| 2026-05-31 | 微调与 vLLM GPU 互斥 | 训练前停 vLLM 或 K8s scale 0；与 M4 分时一致 |
+| 2026-05-31 | M5 完整 epoch 在 24GB 线上跑 | 本机 6GB 仅 dry-run；`train-gpu-24g` + [m5_online_train.md](./m5_online_train.md)（默认 AutoDL 4090） |
 
 <!-- 新决策追加在表末 -->
