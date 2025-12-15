@@ -90,7 +90,7 @@ def call_vllm(
             "model": model,
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 0.3,
-            "max_tokens": 1024,
+            "max_tokens": 512,
         },
         ensure_ascii=False,
     ).encode("utf-8")
@@ -240,7 +240,7 @@ def main() -> None:
     parser.add_argument("--review-ratio", type=float, default=0.34, help="Fraction per doc for review file")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--max-chars", type=int, default=1800, help="Truncate doc text for prompt")
-    parser.add_argument("--timeout", type=float, default=120.0, help="vLLM request timeout seconds")
+    parser.add_argument("--timeout", type=float, default=180.0, help="vLLM request timeout seconds")
     parser.add_argument("--no-llm", action="store_true", help="Skip vLLM; heuristic only")
     parser.add_argument(
         "--merge-to",
