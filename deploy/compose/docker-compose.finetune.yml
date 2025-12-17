@@ -10,7 +10,7 @@ services:
     environment:
       IOR_PROFILE: train-gpu-24g
       HF_HOME: /workspace/.cache/huggingface
-      # 国内可设: HF_ENDPOINT=https://hf-mirror.com
+      # 勿设 HF_ENDPOINT=hf-mirror.com（huggingface_hub ≥1.17 不兼容）
     volumes:
       - ../../data:/workspace/data:ro
       - ../../models:/workspace/models

@@ -117,8 +117,11 @@ kubectl -n industrial-ops get pods
 
 ### 3.4 下载模型（HF）
 
+> **勿设** `HF_ENDPOINT=https://hf-mirror.com`：`huggingface_hub` ≥1.17 与镜像不兼容，会报 `FileMetadataError`。直连 `huggingface.co`；失败用 ModelScope（见 [m5_finetune.md](./m5_finetune.md) §11 步骤 4）。
+
 ```powershell
 .\.venv\Scripts\activate
+Remove-Item Env:HF_ENDPOINT -ErrorAction SilentlyContinue
 pip install -U "huggingface_hub[cli]"
 # 需先在 hf.co 设置 token: hf auth login
 
@@ -315,7 +318,58 @@ python pipelines/evaluation/run_ragas.py --golden data/eval/golden.jsonl --outpu
 
 **省 token**：把 `reports/ragas_report.json` 留在磁盘；聊天只贴 **汇总 5 个指标数字**。
 
-### 3.9 QLoRA 训练（M5）
+### 3.9.0 本机 20 分钟迷你 epoch（6GB，推荐）
+
+> **全文**：[m5_finetune.md](./m5_finetune.md) §11（三个 JSONL 含义、流程图、基座说明见同文档 §2.1、§3）。  
+> **Profile**：`dev-finetune-mini`（512 seq、grad_accum=2，防 OOM）。  
+> **6GB 说明**：下载 ~15GB **磁盘**；训练时 4bit 加载约 **5～6GB 显存**，**须先停 vLLM**。本档目标为 **迷你 epoch 链路验收**（非完整多 epoch）；完整训练见 §3.9.2 / [m5_online_train.md](./m5_online_train.md)。下载前先做步骤 1～3，再步骤 4 预下载、步骤 5 冒烟。
+
+```powershell
+cd d:\repo\RAG
+.\.venv\Scripts\Activate.ps1
+
+# --- 步骤 1：划分 + 无 GPU 验收 ---
+python scripts\split_sft_by_doc_id.py `
+  --input data\processed\sft.jsonl `
+  --train-out data\processed\sft_train.jsonl `
+  --holdout-out data\processed\sft_holdout.jsonl `
+  --holdout-doc-ids pump_p101_manual.md
+python scripts\verify_m5.py --write-report
+python scripts\init_ragas_reports.py --phase before
+
+# --- 步骤 2：停 vLLM（Ctrl+C 或 docker stop）---
+# docker ps --format "{{.ID}} {{.Image}}" | findstr vllm
+# docker stop <容器ID>
+
+# --- 步骤 3：dry-run ---
+python pipelines\finetune\train_qlora.py `
+  --profile dev-finetune-mini `
+  --dataset data\processed\sft_train.jsonl `
+  --dry-run
+
+# --- 步骤 3b（下载后，步骤 5）— 10 step 冒烟，确认 6GB 不 OOM ---
+python pipelines\finetune\train_qlora.py `
+  --profile dev-finetune-mini `
+  --max-steps 10 `
+  --dataset data\processed\sft_train.jsonl `
+  --output-dir models\qlora-adapter-smoke
+
+# --- 步骤 4：训练（约 10～20 分钟，模型已缓存时）---
+python pipelines\finetune\train_qlora.py `
+  --profile dev-finetune-mini `
+  --dataset data\processed\sft_train.jsonl `
+  --output-dir models\qlora-adapter `
+  --num-train-epochs 1
+
+# --- 步骤 5：重启 vLLM 后，RAGAS 占位对比 ---
+python scripts\init_ragas_reports.py --phase after
+python scripts\compare_ragas.py
+python scripts\verify_m5.py --check-ragas --write-report
+```
+
+可选预下载训练基座（~15GB 磁盘，首次可能 >20 分钟）：**先完成步骤 1～3 并停 vLLM**，再按 [m5_finetune.md](./m5_finetune.md) §11 步骤 4（**勿设** `HF_ENDPOINT=hf-mirror.com`）。
+
+### 3.9 QLoRA 训练（M5 通用）
 
 > **学习文档**：[m5_finetune.md](./m5_finetune.md)。
 
@@ -325,7 +379,8 @@ copy data\processed\sft.jsonl.example data\processed\sft.jsonl
 python pipelines/finetune/train_qlora.py --dry-run
 python pipelines/finetune/train_qlora.py --dataset data/processed/sft.jsonl --output-dir models/qlora-adapter
 # 冒烟（数分钟级，仍须 GPU）：
-python pipelines/finetune/train_qlora.py --max-samples 32 --max-steps 10
+python pipelines/finetune/train_qlora.py --profile dev-finetune-mini --max-steps 10 `
+  --dataset data/processed/sft_train.jsonl --output-dir models/qlora-adapter
 ```
 
 **省 token**：训练曲线用本地 tensorboard/wandb；别让 Agent 解读 200 行 epoch log。
@@ -364,7 +419,9 @@ python scripts/prepare_m5_online_bundle.py
 线上（SSH 到 GPU 机后，节选）：
 
 ```bash
-export HF_ENDPOINT=https://hf-mirror.com   # 国内可选
+# 勿设 HF_ENDPOINT=hf-mirror.com（huggingface_hub ≥1.17 不兼容）；国内慢可试 ModelScope，见 m5_finetune.md §11 步骤 4
+export HF_HOME=/root/autodl-tmp/hf-cache
+
 python pipelines/finetune/train_qlora.py --profile train-gpu-24g \
   --dataset data/processed/sft_train.jsonl --output-dir models/qlora-adapter
 tar czvf qlora-adapter.tgz -C models qlora-adapter

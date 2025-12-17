@@ -57,8 +57,7 @@ python scripts\prepare_m5_online_bundle.py
 ### 3.2 拉代码与数据
 
 ```bash
-# 国内建议
-export HF_ENDPOINT=https://hf-mirror.com
+# 勿设 HF_ENDPOINT=hf-mirror.com（huggingface_hub ≥1.17 不兼容）；国内慢见 m5_finetune.md §11 步骤 4 ModelScope
 export HF_HOME=/root/autodl-tmp/hf-cache
 
 git clone <你的 RAG 仓库 URL> /root/RAG

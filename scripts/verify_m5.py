@@ -23,6 +23,7 @@ PITFALLS = ROOT / "docs" / "finetune_pitfalls.md"
 HELM_JOB = ROOT / "deploy" / "helm" / "industrial-ops-rag" / "templates" / "finetune-train-job.yaml"
 TRAIN_SCRIPT = ROOT / "pipelines" / "finetune" / "train_qlora.py"
 TRAIN_PROFILE = ROOT / "deploy" / "profiles" / "train-gpu-24g.yaml"
+MINI_PROFILE = ROOT / "deploy" / "profiles" / "dev-finetune-mini.yaml"
 SFT_TRAIN = ROOT / "data" / "processed" / "sft_train.jsonl"
 
 
@@ -111,6 +112,20 @@ def _case_online_profile(report: dict) -> bool:
     return ok
 
 
+def _case_mini_profile(report: dict) -> bool:
+    ok = MINI_PROFILE.is_file()
+    detail = ""
+    if ok:
+        cfg = finetune_cfg(load_profile("dev-finetune-mini"))
+        ok = int(cfg.get("max_seq_length", 9999)) <= 512 and int(
+            cfg.get("gradient_accumulation_steps", 99)
+        ) <= 4
+        detail = f"max_seq={cfg.get('max_seq_length')} accum={cfg.get('gradient_accumulation_steps')}"
+    _check("profile dev-finetune-mini (6GB)", ok, detail)
+    report["cases"].append({"name": "dev_finetune_mini_profile", "ok": ok})
+    return ok
+
+
 def _case_sft_train_split(report: dict) -> bool:
     ok = SFT_TRAIN.is_file()
     detail = "run split_sft_by_doc_id.py" if not ok else ""
@@ -167,6 +182,7 @@ def main() -> None:
     report: dict = {"milestone": "M5", "cases": []}
     results = [
         _case_profile(report),
+        _case_mini_profile(report),
         _case_online_profile(report),
         _case_sft_example(report),
         _case_sft_train_split(report),

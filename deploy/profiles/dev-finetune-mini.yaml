@@ -1,0 +1,19 @@
+# 6GB 本机「20 分钟迷你 epoch」专用 — 防 OOM、小数据集可出 optimizer step
+# 用法：train_qlora.py --profile dev-finetune-mini
+# 勿用于线上完整训练；线上见 train-gpu-24g + docs/m5_online_train.md
+
+profile: dev-finetune-mini
+
+finetune:
+  base_model: Qwen/Qwen2.5-7B-Instruct
+  dataset_max_samples: 5000
+  qlora_r: 8
+  qlora_alpha: 16
+  lora_dropout: 0.05
+  max_seq_length: 512          # 6GB 安全值；短问答足够
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 2 # 7 条 train → 每 epoch 约 3～4 step（16 会导致 0 step）
+  gradient_checkpointing: true
+  bnb_4bit: true
+  learning_rate: 2.0e-4
+  num_train_epochs: 1
