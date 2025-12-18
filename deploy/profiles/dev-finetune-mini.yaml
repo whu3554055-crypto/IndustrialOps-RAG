@@ -5,7 +5,8 @@
 profile: dev-finetune-mini
 
 finetune:
-  base_model: Qwen/Qwen2.5-7B-Instruct
+  # hf download Qwen/Qwen2.5-7B-Instruct --local-dir models/Qwen2.5-7B-Instruct
+  base_model: models/Qwen2.5-7B-Instruct
   dataset_max_samples: 5000
   qlora_r: 8
   qlora_alpha: 16

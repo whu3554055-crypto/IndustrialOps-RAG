@@ -189,7 +189,7 @@ copy data\processed\sft.jsonl.example data\processed\sft.jsonl
 
 | 字段 | 含义 |
 |------|------|
-| `base_model` | 训练用 HF 名（全精度族） |
+| `base_model` | 训练基座：本机推荐 `models/Qwen2.5-7B-Instruct`（`hf download --local-dir`）；线上可用 Hub 名 |
 | `qlora_r` / `qlora_alpha` | LoRA 秩 / 缩放 |
 | `per_device_train_batch_size` | 单卡 micro-batch |
 | `gradient_checkpointing` + `bnb_4bit` | 6GB 必开 |

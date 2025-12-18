@@ -102,7 +102,7 @@ agent:
   # max_chars_per_chunk: context 超 max_model_len 时按边界截断单 chunk
 
 finetune:
-  base_model: Qwen/Qwen2.5-7B-Instruct  # 训练用全精度 HF；推理 AWQ 见 m5_finetune.md
+  base_model: models/Qwen2.5-7B-Instruct  # hf --local-dir；缺失时 train_qlora 回退 Hub；推理 AWQ 见 m5_finetune.md
   dataset_max_samples: 5000  # 调试可改小；见 train_qlora --max-samples
   qlora_r: 8
   qlora_alpha: 16

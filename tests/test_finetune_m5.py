@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from pipelines.finetune.model_path import resolve_base_model
 from pipelines.finetune.train_qlora import (
     finetune_cfg,
     load_sft_records,
@@ -40,6 +41,22 @@ def test_finetune_profile_keys() -> None:
     cfg = finetune_cfg()
     assert cfg["qlora_r"] >= 1
     assert cfg["max_seq_length"] >= 512
+
+
+def test_resolve_base_model_prefers_local_dir(tmp_path: Path) -> None:
+    local = tmp_path / "models" / "Qwen2.5-7B-Instruct"
+    local.mkdir(parents=True)
+    (local / "config.json").write_text("{}", encoding="utf-8")
+    (local / "model-00001-of-00004.safetensors").write_bytes(b"x")
+
+    resolved = resolve_base_model(
+        "models/Qwen2.5-7B-Instruct",
+        root=tmp_path,
+    )
+    assert resolved == str(local.resolve())
+
+    hub = resolve_base_model("Qwen/Qwen2.5-7B-Instruct", root=tmp_path)
+    assert hub == str(local.resolve())
 
 
 def test_empty_dataset_raises() -> None:

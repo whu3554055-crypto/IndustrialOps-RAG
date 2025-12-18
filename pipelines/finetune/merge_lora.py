@@ -15,6 +15,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from apps.config import load_profile  # noqa: E402
+from pipelines.finetune.model_path import resolve_base_model  # noqa: E402
 from pipelines.finetune.train_qlora import finetune_cfg  # noqa: E402
 
 
@@ -23,11 +24,12 @@ def main() -> None:
     parser.add_argument("--adapter-dir", type=Path, default=ROOT / "models" / "qlora-adapter")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "models" / "merged-7b")
     parser.add_argument("--profile", default="train-gpu-24g")
+    parser.add_argument("--base-model", default=None, help="Override finetune.base_model")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
     cfg = finetune_cfg(load_profile(args.profile))
-    base = str(cfg["base_model"])
+    base = resolve_base_model(str(cfg["base_model"]), cli_override=args.base_model)
     if args.dry_run:
         print(f"[dry-run] merge {args.adapter_dir} -> {args.output_dir}")
         print(f"  base_model={base}")

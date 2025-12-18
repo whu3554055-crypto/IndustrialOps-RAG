@@ -16,6 +16,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from apps.config import load_profile  # noqa: E402
+from pipelines.finetune.model_path import HF_HUB_INSTRUCT, resolve_base_model  # noqa: E402
 
 DEFAULT_DATASET = ROOT / "data" / "processed" / "sft.jsonl"
 DEFAULT_OUTPUT = ROOT / "models" / "qlora-adapter"
@@ -34,7 +35,7 @@ LORA_TARGET_MODULES = (
 def finetune_cfg(profile: dict | None = None) -> dict:
     p = profile or load_profile()
     cfg = dict(p.get("finetune") or {})
-    cfg.setdefault("base_model", "Qwen/Qwen2.5-7B-Instruct")
+    cfg.setdefault("base_model", "models/Qwen2.5-7B-Instruct")
     cfg.setdefault("dataset_max_samples", 5000)
     cfg.setdefault("qlora_r", 8)
     cfg.setdefault("qlora_alpha", 16)
@@ -104,6 +105,7 @@ def run_dry_run(
     output_dir: Path,
     profile_name: str | None,
     max_samples: int | None,
+    base_model_override: str | None = None,
 ) -> int:
     profile = load_profile(profile_name)
     cfg = finetune_cfg(profile)
@@ -111,8 +113,10 @@ def run_dry_run(
     records = load_sft_records(dataset, cap)
     validate_sft_records(records)
     doc_ids = {r.get("doc_id") or (r.get("doc_ids") or [None])[0] for r in records}
+    resolved = resolve_base_model(str(cfg["base_model"]), cli_override=base_model_override)
     print("[dry-run] finetune profile OK")
-    print(f"  base_model={cfg['base_model']}")
+    print(f"  base_model(profile)={cfg['base_model']}")
+    print(f"  base_model(resolved)={resolved}")
     print(f"  records={len(records)} unique_doc_ids≈{len(doc_ids)}")
     print(f"  qlora r={cfg['qlora_r']} alpha={cfg['qlora_alpha']} max_seq={cfg['max_seq_length']}")
     print(f"  output_dir={output_dir}")
@@ -128,6 +132,8 @@ def run_train(
     max_samples: int | None,
     num_train_epochs: float | None,
     max_steps: int | None,
+    base_model_override: str | None = None,
+    local_files_only: bool = False,
 ) -> int:
     import torch
     from datasets import Dataset
@@ -151,10 +157,14 @@ def run_train(
     records = load_sft_records(dataset, cap)
     validate_sft_records(records)
 
-    base_model = str(cfg["base_model"])
+    base_model = resolve_base_model(str(cfg["base_model"]), cli_override=base_model_override)
+    load_kw: dict[str, Any] = {"trust_remote_code": True}
+    if local_files_only:
+        load_kw["local_files_only"] = True
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    tokenizer = AutoTokenizer.from_pretrained(base_model, trust_remote_code=True)
+    print(f"[train] loading base_model from {base_model}")
+    tokenizer = AutoTokenizer.from_pretrained(base_model, **load_kw)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
@@ -192,7 +202,7 @@ def run_train(
         base_model,
         quantization_config=quant_config,
         device_map="auto",
-        trust_remote_code=True,
+        **load_kw,
     )
     model = prepare_model_for_kbit_training(model)
     lora = LoraConfig(
@@ -248,6 +258,16 @@ def main() -> None:
     parser.add_argument("--max-samples", type=int, default=None)
     parser.add_argument("--num-train-epochs", type=float, default=None)
     parser.add_argument("--max-steps", type=int, default=None, help="Override epochs for smoke test")
+    parser.add_argument(
+        "--base-model",
+        default=None,
+        help=f"Override finetune.base_model (default: profile or local {HF_HUB_INSTRUCT})",
+    )
+    parser.add_argument(
+        "--local-files-only",
+        action="store_true",
+        help="Do not download; fail if resolved base_model path is incomplete",
+    )
     args = parser.parse_args()
 
     if args.dry_run:
@@ -257,6 +277,7 @@ def main() -> None:
                 output_dir=args.output_dir,
                 profile_name=args.profile,
                 max_samples=args.max_samples,
+                base_model_override=args.base_model,
             )
         )
     raise SystemExit(
@@ -267,6 +288,8 @@ def main() -> None:
             max_samples=args.max_samples,
             num_train_epochs=args.num_train_epochs,
             max_steps=args.max_steps,
+            base_model_override=args.base_model,
+            local_files_only=args.local_files_only,
         )
     )
 
