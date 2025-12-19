@@ -439,8 +439,18 @@ python scripts\compare_ragas.py
 python scripts\verify_m5.py --check-ragas --write-report
 ```
 
-### OOM 时只改这三项（仍用 `dev-finetune-mini` 则通常不必）
+### 6GB 本机训练失败时（放弃本机、改线上）
 
-1. `max_seq_length` → 384  
-2. `per_device_train_batch_size` 保持 1  
-3. 确认 vLLM 已停、`gradient_checkpointing: true`
+若冒烟/训练出现下列任一情况，**不必再调本机**，按 [m5_online_train.md](./m5_online_train.md) 在 **4090 24GB** 跑 `train-gpu-24g`：
+
+- `Some modules are dispatched on the CPU or the disk`（`device_map=auto` 显存不够；profile 已改为 `single_gpu`，仍失败即硬件不够）
+- `CUDA out of memory`
+- `train_qlora.py` 退出码 `2` 且提示改走线上
+
+本机 M5 **仍可完成**：数据划分、`verify_m5`、RAGAS 占位、adapter 从云上下载回传。
+
+### OOM 时（仅当仍想赌本机）
+
+1. 确认 vLLM 已停、`nvidia-smi` 显存空闲  
+2. `dev-finetune-mini` 已含 `device_map: single_gpu`、`max_seq_length: 384`、`qlora_r: 4`  
+3. 仍 OOM → **放弃本机训练**（见上）

@@ -1,20 +1,23 @@
 # 6GB 本机「20 分钟迷你 epoch」专用 — 防 OOM、小数据集可出 optimizer step
 # 用法：train_qlora.py --profile dev-finetune-mini
-# 勿用于线上完整训练；线上见 train-gpu-24g + docs/m5_online_train.md
+# 若仍 OOM / CPU offload 报错 → 放弃本机训练，见 docs/m5_online_train.md
+# 勿用于线上完整训练；线上见 train-gpu-24g
 
 profile: dev-finetune-mini
 
 finetune:
   # hf download Qwen/Qwen2.5-7B-Instruct --local-dir models/Qwen2.5-7B-Instruct
   base_model: models/Qwen2.5-7B-Instruct
+  device_map: single_gpu       # 禁止 auto 把层卸到 CPU（QLoRA 训练要求全在 GPU）
   dataset_max_samples: 5000
-  qlora_r: 8
-  qlora_alpha: 16
+  qlora_r: 4                   # 6GB 降秩
+  qlora_alpha: 8
   lora_dropout: 0.05
-  max_seq_length: 512          # 6GB 安全值；短问答足够
+  max_seq_length: 384          # 512 在 6GB 上易触发 auto CPU offload
   per_device_train_batch_size: 1
-  gradient_accumulation_steps: 2 # 7 条 train → 每 epoch 约 3～4 step（16 会导致 0 step）
+  gradient_accumulation_steps: 2
   gradient_checkpointing: true
   bnb_4bit: true
+  optim: paged_adamw_8bit
   learning_rate: 2.0e-4
   num_train_epochs: 1

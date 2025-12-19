@@ -117,10 +117,15 @@ def _case_mini_profile(report: dict) -> bool:
     detail = ""
     if ok:
         cfg = finetune_cfg(load_profile("dev-finetune-mini"))
-        ok = int(cfg.get("max_seq_length", 9999)) <= 512 and int(
-            cfg.get("gradient_accumulation_steps", 99)
-        ) <= 4
-        detail = f"max_seq={cfg.get('max_seq_length')} accum={cfg.get('gradient_accumulation_steps')}"
+        ok = (
+            int(cfg.get("max_seq_length", 9999)) <= 512
+            and int(cfg.get("gradient_accumulation_steps", 99)) <= 4
+            and str(cfg.get("device_map", "")) in ("single_gpu", "cuda:0", "gpu0", "0")
+        )
+        detail = (
+            f"max_seq={cfg.get('max_seq_length')} accum={cfg.get('gradient_accumulation_steps')} "
+            f"device_map={cfg.get('device_map')}"
+        )
     _check("profile dev-finetune-mini (6GB)", ok, detail)
     report["cases"].append({"name": "dev_finetune_mini_profile", "ok": ok})
     return ok

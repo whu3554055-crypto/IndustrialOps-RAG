@@ -9,6 +9,7 @@ from pipelines.finetune.train_qlora import (
     finetune_cfg,
     load_sft_records,
     normalize_messages,
+    resolve_device_map,
     validate_sft_records,
 )
 
@@ -57,6 +58,11 @@ def test_resolve_base_model_prefers_local_dir(tmp_path: Path) -> None:
 
     hub = resolve_base_model("Qwen/Qwen2.5-7B-Instruct", root=tmp_path)
     assert hub == str(local.resolve())
+
+
+def test_resolve_device_map_single_gpu() -> None:
+    assert resolve_device_map({"device_map": "single_gpu"}) == {"": 0}
+    assert resolve_device_map({"device_map": "auto"}) == "auto"
 
 
 def test_empty_dataset_raises() -> None:

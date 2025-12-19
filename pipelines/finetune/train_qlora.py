@@ -31,6 +31,21 @@ LORA_TARGET_MODULES = (
     "down_proj",
 )
 
+LOCAL_6GB_HINT = (
+    "6GB 本机 QLoRA 失败：请先停 vLLM（nvidia-smi 显存应接近空闲），"
+    "再试 dev-finetune-mini；仍失败则改走 docs/m5_online_train.md（4090 24GB）。"
+)
+
+
+def resolve_device_map(cfg: dict) -> str | dict[str, int]:
+    """QLoRA k-bit 训练要求量化权重全在 GPU；6GB 勿用 device_map=auto."""
+    dm = cfg.get("device_map", "auto")
+    if dm in ("single_gpu", "cuda:0", "gpu0", "0"):
+        return {"": 0}
+    if isinstance(dm, dict):
+        return dm
+    return str(dm)
+
 
 def finetune_cfg(profile: dict | None = None) -> dict:
     p = profile or load_profile()
@@ -119,6 +134,7 @@ def run_dry_run(
     print(f"  base_model(resolved)={resolved}")
     print(f"  records={len(records)} unique_doc_ids≈{len(doc_ids)}")
     print(f"  qlora r={cfg['qlora_r']} alpha={cfg['qlora_alpha']} max_seq={cfg['max_seq_length']}")
+    print(f"  device_map={resolve_device_map(cfg)!r}")
     print(f"  output_dir={output_dir}")
     print("  GPU: training requires CUDA; stop vLLM before real run (docs/m5_finetune.md)")
     return 0
@@ -189,22 +205,48 @@ def run_train(
 
     hf_ds = Dataset.from_dict({"text": texts}).map(tokenize, batched=True, remove_columns=["text"])
 
+    device_map = resolve_device_map(cfg)
+    torch.cuda.empty_cache()
+    free_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+    print(f"[train] device_map={device_map!r} gpu_total≈{free_gb:.1f}GiB")
+
     quant_config = None
     if cfg.get("bnb_4bit"):
+        compute_dtype = (
+            torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+        )
         quant_config = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_quant_type="nf4",
-            bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_compute_dtype=compute_dtype,
             bnb_4bit_use_double_quant=True,
         )
 
-    model = AutoModelForCausalLM.from_pretrained(
-        base_model,
-        quantization_config=quant_config,
-        device_map="auto",
+    load_model_kw: dict[str, Any] = {
         **load_kw,
-    )
-    model = prepare_model_for_kbit_training(model)
+        "quantization_config": quant_config,
+        "device_map": device_map,
+        "low_cpu_mem_usage": True,
+    }
+    try:
+        model = AutoModelForCausalLM.from_pretrained(base_model, **load_model_kw)
+    except ValueError as exc:
+        msg = str(exc)
+        if "CPU or the disk" in msg or "dispatched on the CPU" in msg:
+            print(f"ERROR: {msg}", file=sys.stderr)
+            print(f"ERROR: {LOCAL_6GB_HINT}", file=sys.stderr)
+            return 2
+        raise
+    except torch.cuda.OutOfMemoryError:
+        print("ERROR: CUDA OOM while loading base model.", file=sys.stderr)
+        print(f"ERROR: {LOCAL_6GB_HINT}", file=sys.stderr)
+        return 2
+
+    model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=bool(
+        cfg.get("gradient_checkpointing", True)
+    ))
+    if hasattr(model, "enable_input_require_grads"):
+        model.enable_input_require_grads()
     lora = LoraConfig(
         r=int(cfg["qlora_r"]),
         lora_alpha=int(cfg["qlora_alpha"]),
@@ -216,20 +258,24 @@ def run_train(
     model = get_peft_model(model, lora)
 
     epochs = float(num_train_epochs if num_train_epochs is not None else cfg["num_train_epochs"])
-    train_args = TrainingArguments(
-        output_dir=str(output_dir),
-        per_device_train_batch_size=int(cfg["per_device_train_batch_size"]),
-        gradient_accumulation_steps=int(cfg["gradient_accumulation_steps"]),
-        learning_rate=float(cfg["learning_rate"]),
-        num_train_epochs=epochs,
-        max_steps=max_steps if max_steps is not None else -1,
-        logging_steps=10,
-        save_strategy="epoch",
-        bf16=torch.cuda.is_bf16_supported(),
-        gradient_checkpointing=bool(cfg.get("gradient_checkpointing", True)),
-        report_to="none",
-        remove_unused_columns=False,
-    )
+    train_kw: dict[str, Any] = {
+        "output_dir": str(output_dir),
+        "per_device_train_batch_size": int(cfg["per_device_train_batch_size"]),
+        "gradient_accumulation_steps": int(cfg["gradient_accumulation_steps"]),
+        "learning_rate": float(cfg["learning_rate"]),
+        "num_train_epochs": epochs,
+        "max_steps": max_steps if max_steps is not None else -1,
+        "logging_steps": 10,
+        "save_strategy": "epoch",
+        "bf16": torch.cuda.is_bf16_supported(),
+        "gradient_checkpointing": bool(cfg.get("gradient_checkpointing", True)),
+        "report_to": "none",
+        "remove_unused_columns": False,
+    }
+    optim = cfg.get("optim")
+    if optim:
+        train_kw["optim"] = str(optim)
+    train_args = TrainingArguments(**train_kw)
 
     collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
     trainer = Trainer(
@@ -238,7 +284,12 @@ def run_train(
         train_dataset=hf_ds,
         data_collator=collator,
     )
-    trainer.train()
+    try:
+        trainer.train()
+    except (torch.cuda.OutOfMemoryError, ValueError) as exc:
+        print(f"ERROR: training failed: {exc}", file=sys.stderr)
+        print(f"ERROR: {LOCAL_6GB_HINT}", file=sys.stderr)
+        return 2
     model.save_pretrained(output_dir)
     tokenizer.save_pretrained(output_dir)
     (output_dir / "train_config.json").write_text(
