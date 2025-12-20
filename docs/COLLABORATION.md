@@ -361,8 +361,9 @@ python pipelines\finetune\train_qlora.py `
   --output-dir models\qlora-adapter `
   --num-train-epochs 1
 
-# --- 步骤 5：重启 vLLM 后，RAGAS 占位对比 ---
-python scripts\init_ragas_reports.py --phase after
+# --- 步骤 5：RAGAS 占位对比（M6 前用 --fill-example）---
+python scripts\init_ragas_reports.py --phase before --fill-example
+python scripts\init_ragas_reports.py --phase after --fill-example
 python scripts\compare_ragas.py
 python scripts\verify_m5.py --check-ragas --write-report
 ```

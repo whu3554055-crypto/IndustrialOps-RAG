@@ -184,7 +184,7 @@ copy data\processed\sft.jsonl.example data\processed\sft.jsonl
 | Profile | 用途 | `max_seq_length` | `gradient_accumulation_steps` |
 |---------|------|------------------|-------------------------------|
 | `dev-single-node` | 默认开发 | 2048 | 16 |
-| **`dev-finetune-mini`** | **6GB 本机迷你 epoch** | **512** | **2** |
+| **`dev-finetune-mini`** | **6GB 本机迷你 epoch** | **384** | **2** |
 | `train-gpu-24g` | 线上 4090 完整训练 | 4096 | 8 |
 
 | 字段 | 含义 |
@@ -194,6 +194,36 @@ copy data\processed\sft.jsonl.example data\processed\sft.jsonl
 | `per_device_train_batch_size` | 单卡 micro-batch |
 | `gradient_checkpointing` + `bnb_4bit` | 6GB 必开 |
 | `num_train_epochs` | 小样本保持 1 |
+
+### 5.1 本机 6GB 参数精读（`dev-finetune-mini`）
+
+> **目的**：在 6GB 上跑通 QLoRA **链路**（非生产效果）。与线上 `train-gpu-24g` 对照学微调。
+
+| 参数 | 本机 mini | 线上 24G | 含义（为什么要调） |
+|------|-----------|----------|-------------------|
+| **`base_model`** | `models/Qwen2.5-7B-Instruct` | `Qwen/Qwen2.5-7B-Instruct` | 训练用 **HF 全精度族**（4bit 加载），不是 AWQ。本机复用 `hf download --local-dir` 路径，避免重复下载。 |
+| **`device_map`** | `single_gpu` | （默认 auto） | `auto` 在 6GB 会把层卸到 CPU → QLoRA **禁止**。`single_gpu` = 整模钉在 GPU0。 |
+| **`bnb_4bit`** | true | true | **QLoRA 核心**：基座权重 4bit 存显存（~4GB），只训练 LoRA 小矩阵。 |
+| **`max_seq_length`** | **384** | 4096 | 单条样本最大 token 数。**越长，激活显存越大**（OOM 第一杀手）。384 够短问答 SFT。 |
+| **`qlora_r`** | **4** | 16 | LoRA **秩**：可训练低秩矩阵的宽度。越小参数越少、显存越低，表达能力略降。 |
+| **`qlora_alpha`** | **8** | 32 | LoRA 缩放，常取 **2×r**。影响 adapter 更新幅度。 |
+| **`lora_dropout`** | 0.05 | 0.05 | LoRA 层 dropout，减轻小数据过拟合。 |
+| **`per_device_train_batch_size`** | 1 | 2 | 每次 forward **几条样本**。6GB 只能 1。 |
+| **`gradient_accumulation_steps`** | 2 | 8 | 累积 N 次 micro-batch 再 **optimizer step**。有效 batch = 1×2=2；小 train 集仍能出 step。 |
+| **`gradient_checkpointing`** | true | true | 用算力换显存：反向时不存全部激活，**重算**部分层。训练变慢但省 VRAM。 |
+| **`optim`** | `paged_adamw_8bit` | （默认 adamw） | **8bit 分页 Adam**：优化器状态也压显存；大模型微调常用。 |
+| **`learning_rate`** | 2e-4 | 1e-4 | LoRA 常用 **1e-4～2e-4**；小数据略高可加快收敛，易过拟合则降低。 |
+| **`num_train_epochs`** | 1 | 2 | 全数据扫几遍。7 条 train 时 1 epoch 即可验链路。 |
+
+**CLI 补充**
+
+| 参数 | 用途 |
+|------|------|
+| `--max-steps 10` | 不跑满 epoch，只跑 N 个 optimizer step → **冒烟**验 6GB 不 OOM |
+| `--local-files-only` | 只用本地 `base_model` 目录，不联网补权重 |
+| `--base-model` | 临时覆盖 profile 里的基座路径 |
+
+**口诀**：显存不够先砍 **seq_len** 和 **batch**，再降 **LoRA r**；QLoRA 必须 **4bit + checkpoint + 单卡**；推理 AWQ 与训练基座 **不是同一个文件**。
 
 ---
 
@@ -273,22 +303,24 @@ python scripts\verify_m5.py --check-ragas --write-report
 
 ## 9. M5 验收清单
 
-**本地（必做）**
+**本地（必做）** — 2026-06-02 本机已完成
 
-- [ ] `split_sft_by_doc_id.py` → `sft_train.jsonl` / `sft_holdout.jsonl`  
-- [ ] `python scripts/verify_m5.py --write-report` → 全 PASS  
-- [ ] `pytest tests/test_finetune_m5.py`  
+- [x] `split_sft_by_doc_id.py` → `sft_train.jsonl` / `sft_holdout.jsonl`  
+- [x] `python scripts/verify_m5.py --write-report` → 全 PASS  
+- [x] `pytest tests/test_finetune_m5.py`  
+- [x] 迷你 epoch → `models/qlora-adapter/`  
+- [x] `init_ragas_reports.py --fill-example` → `verify_m5.py --check-ragas` PASS（M6 前为占位）
 
-**线上（训练完整）**
+**线上（训练完整）** — 本项目不做
 
 - [ ] [m5_online_train.md](./m5_online_train.md)：`train-gpu-24g` 完整 epoch  
 - [ ] `qlora-adapter.tgz` 回传到 `models/qlora-adapter`  
 
-**闭环（回传后）**
+**闭环（回传后）** — 跳过（无线上）
 
-- [ ] `init_ragas_reports.py` before/after（或真 RAGAS）→ `compare_ragas.py`  
-- [ ] `verify_m5.py --check-ragas` → `evolution.md` 追加一行  
-- [ ] 新踩坑写入 `finetune_pitfalls.md`
+- [x] RAGAS 占位 before/after → `compare_ragas.py`  
+- [x] `verify_m5.py --check-ragas`  
+- [x] 踩坑 #9–#13 写入 `finetune_pitfalls.md`；指标 → `evolution.md`
 
 ---
 
@@ -433,8 +465,11 @@ python pipelines\finetune\train_qlora.py `
 
 ### 步骤 8 — RAGAS 占位与对比
 
+> M6 实装真 RAGAS 前，用 **`--fill-example`** 写入演示分数，否则 `verify_m5 --check-ragas` 会因 `null` 失败。
+
 ```powershell
-python scripts\init_ragas_reports.py --phase after
+python scripts\init_ragas_reports.py --phase before --fill-example
+python scripts\init_ragas_reports.py --phase after --fill-example
 python scripts\compare_ragas.py
 python scripts\verify_m5.py --check-ragas --write-report
 ```

@@ -12,6 +12,11 @@
 | 6 | 微调后检索仍错 | 仅 SFT 未改 embedding/分块 | 先查 M2 Recall；SFT 只修生成，不修检索 miss | 2026-05-31 |
 | 7 | vLLM 加载 adapter 失败 | 训练在全精度基座，推理用 AWQ | merge LoRA 后量化，或 vLLM 非 AWQ 基座 + `--enable-lora`；见 m5_finetune.md §3.1 | 2026-05-31 |
 | 8 | 中文标点不一致 | 全角/半角混用 | 语料与 prompt 统一标点；ingest 阶段规范化 | 2026-05-31 |
+| 9 | `FileMetadataError` 下 HF 模型 | `HF_ENDPOINT=hf-mirror.com` 与 `huggingface_hub` ≥1.17 不兼容 | 直连 hf.co 或 ModelScope；勿设镜像 | 2026-06-02 |
+| 10 | 训练仍拉 15GB | `hf download --local-dir` 与 profile 的 Hub 名不一致 | `base_model: models/Qwen2.5-7B-Instruct` 或 `train_qlora --base-model` | 2026-06-02 |
+| 11 | `dispatched on the CPU or the disk` | `device_map=auto` 在 6GB 上把层卸到 CPU | `device_map: single_gpu`（`{"":0}`）；QLoRA 须全 GPU | 2026-06-02 |
+| 12 | `Torch not compiled with CUDA` | `.venv` 装了 CPU 版 torch | `pip uninstall torch` 后从 `cu124` 索引重装 | 2026-06-02 |
+| 13 | `verify_m5 --check-ragas` 报 `float(None)` | `init_ragas_reports` 默认指标为 `null` | M6 前用 `--fill-example` 占位，或手填 JSON | 2026-06-02 |
 
 ## 必踩主题清单
 
@@ -23,5 +28,6 @@
 - [x] 仅 SFT 未改检索的局限
 - [x] QLoRA 权重与 AWQ vLLM 加载路径
 - [x] 中文全半角/标点一致性
+- [x] HF 镜像 / 本地权重路径 / CPU torch / RAGAS 占位（#9–#13）
 
 <!-- 真实训练后在本表末追加行，勿删历史 -->

@@ -21,4 +21,4 @@
 
 ## 当前状态
 
-M0–M4 已完成；**M5 进行中**：见 [docs/m5_finetune.md](docs/m5_finetune.md)。验收：`verify_m0.py` … `verify_m5.py`。
+M0–M4 已完成；**M5 本机已完成**（2026-06-02，见 `docs/evolution.md`）；**M6 待做**：RAGAS CI 等。验收：`verify_m0.py` … `verify_m5.py`。
