@@ -197,12 +197,15 @@ copy data\processed\sft.jsonl.example data\processed\sft.jsonl
 
 ### 5.1 本机 6GB 参数精读（`dev-finetune-mini`）
 
-> **目的**：在 6GB 上跑通 QLoRA **链路**（非生产效果）。与线上 `train-gpu-24g` 对照学微调。
+> **目的**：在 6GB 上跑通 QLoRA **链路**（非生产效果）。与线上 `train-gpu-24g` 对照，掌握微调时「调什么、为什么调」。  
+> **Profile 文件**：`deploy/profiles/dev-finetune-mini.yaml`（本机） vs `deploy/profiles/train-gpu-24g.yaml`（4090）。
+
+#### 总览对照表
 
 | 参数 | 本机 mini | 线上 24G | 含义（为什么要调） |
 |------|-----------|----------|-------------------|
 | **`base_model`** | `models/Qwen2.5-7B-Instruct` | `Qwen/Qwen2.5-7B-Instruct` | 训练用 **HF 全精度族**（4bit 加载），不是 AWQ。本机复用 `hf download --local-dir` 路径，避免重复下载。 |
-| **`device_map`** | `single_gpu` | （默认 auto） | `auto` 在 6GB 会把层卸到 CPU → QLoRA **禁止**。`single_gpu` = 整模钉在 GPU0。 |
+| **`device_map`** | `single_gpu` | （默认 auto） | `auto` 在 6GB 会把层卸到 CPU → QLoRA **禁止**。`single_gpu` = 整模钉在 GPU0（`{"": 0}`）。 |
 | **`bnb_4bit`** | true | true | **QLoRA 核心**：基座权重 4bit 存显存（~4GB），只训练 LoRA 小矩阵。 |
 | **`max_seq_length`** | **384** | 4096 | 单条样本最大 token 数。**越长，激活显存越大**（OOM 第一杀手）。384 够短问答 SFT。 |
 | **`qlora_r`** | **4** | 16 | LoRA **秩**：可训练低秩矩阵的宽度。越小参数越少、显存越低，表达能力略降。 |
@@ -213,17 +216,62 @@ copy data\processed\sft.jsonl.example data\processed\sft.jsonl
 | **`gradient_checkpointing`** | true | true | 用算力换显存：反向时不存全部激活，**重算**部分层。训练变慢但省 VRAM。 |
 | **`optim`** | `paged_adamw_8bit` | （默认 adamw） | **8bit 分页 Adam**：优化器状态也压显存；大模型微调常用。 |
 | **`learning_rate`** | 2e-4 | 1e-4 | LoRA 常用 **1e-4～2e-4**；小数据略高可加快收敛，易过拟合则降低。 |
-| **`num_train_epochs`** | 1 | 2 | 全数据扫几遍。7 条 train 时 1 epoch 即可验链路。 |
+| **`num_train_epochs`** | 1 | 2 | 全数据扫几遍。7 条 train 时 1 epoch 即可验链路；样本少时多 epoch 易背题（pitfalls #3）。 |
 
-**CLI 补充**
+#### 5.1.1 加载与基座
 
-| 参数 | 用途 |
+| 参数 | 本机取值 | 说明 |
+|------|----------|------|
+| **`base_model`** | 本地 `models/Qwen2.5-7B-Instruct` | 训练用 **HF 全精度族**（运行时经 `bnb_4bit` 以 4bit 载入），**不是** vLLM 的 AWQ 权重。LoRA 只更新 adapter 小矩阵，基座权重 frozen。 |
+| **`bnb_4bit: true`** | 同线上 | **QLoRA**：7B 若 fp16/bf16 全精度加载约需 14GB+ 显存；4bit 量化后权重约 **4GB**，6GB 卡才装得下。 |
+| **`device_map: single_gpu`** | 本机独有 | `device_map=auto` 在显存不足时会把部分层卸到 **CPU/磁盘**；k-bit QLoRA **要求量化权重全部在 GPU**。报错 `Some modules are dispatched on the CPU or the disk` 即此因（pitfalls #11）。 |
+
+#### 5.1.2 显存三大旋钮（OOM 时按此顺序动）
+
+| 参数 | 本机 | 线上 | 说明 |
+|------|------|------|------|
+| **`max_seq_length`** | **384** | 4096 | 每条训练样本截断后的最大 token 数。**激活显存大致与 seq 长度成正比**，是 OOM 时最先动的参数。 |
+| **`per_device_train_batch_size`** | **1** | 2 | 每次 forward 并行处理的样本条数；6GB 上通常只能 1。 |
+| **`gradient_checkpointing`** | true | true | 反向传播时**不保存全部中间激活**，需要时重新计算，用时间换显存。 |
+
+显存不够时的顺序：**先降 `max_seq_length`，保持 batch=1，再降 `qlora_r`**。
+
+#### 5.1.3 LoRA 可训练参数量
+
+| 参数 | 本机 | 线上 | 说明 |
+|------|------|------|------|
+| **`qlora_r`** | **4** | 16 | LoRA **秩**（rank）：在 attention/MLP 旁插入的低秩矩阵「宽度」。r 越小 → 可训练参数越少、显存越低、拟合能力略弱。 |
+| **`qlora_alpha`** | **8** | 32 | 缩放因子，实践中常设为 **约 2×r**，与 r 一起决定 LoRA 更新步长。 |
+| **`lora_dropout`** | 0.05 | 0.05 | 训练时在 LoRA 路径上加 dropout，减轻 **小数据集过拟合**（pitfalls #3）。 |
+
+#### 5.1.4 有效 batch 与优化器
+
+| 参数 | 本机 | 说明 |
+|------|------|------|
+| **`gradient_accumulation_steps`** | **2** | 每做 2 次 micro-batch 的 backward，才执行 1 次 **optimizer step**。有效 batch size = `per_device_train_batch_size × gradient_accumulation_steps` = **1×2=2**。train 仅 7 条时，过大 accum 会导致 0 step。 |
+| **`optim: paged_adamw_8bit`** | 本机 | Adam 的一阶/二阶矩用 **8bit** 存储并分页，进一步压缩优化器占用的显存。 |
+| **`learning_rate`** | 2e-4 | LoRA 常用 **1e-4～2e-4**；数据很少时可略高以加快收敛，若 loss 震荡或过拟合则降低。 |
+| **`num_train_epochs`** | 1 | 整个 train 集完整扫过的轮数；样本极少时不宜盲目加大 epoch。 |
+
+#### 5.1.5 训练流程与 CLI（本机实践）
+
+| 手段 | 作用 |
 |------|------|
-| `--max-steps 10` | 不跑满 epoch，只跑 N 个 optimizer step → **冒烟**验 6GB 不 OOM |
-| `--local-files-only` | 只用本地 `base_model` 目录，不联网补权重 |
-| `--base-model` | 临时覆盖 profile 里的基座路径 |
+| **停 vLLM** | GPU **分时**：6GB 无法推理与 QLoRA 训练同占；训练前 `nvidia-smi` 显存应接近空闲。 |
+| **`--max-steps 10`** | **冒烟**：不跑满 epoch，只跑 N 个 optimizer step，验证 6GB 能加载且能 backward。 |
+| **`--local-files-only`** | 只读 profile 解析后的本地 `base_model` 目录，不联网补权重。 |
+| **`--base-model`** | 临时覆盖 profile 中的基座路径。 |
+| **CUDA 版 torch** | 须 `torch.cuda.is_available()==True`（如 `cu124` wheel）；CPU 版 torch 无法训练（pitfalls #12）。 |
 
-**口诀**：显存不够先砍 **seq_len** 和 **batch**，再降 **LoRA r**；QLoRA 必须 **4bit + checkpoint + 单卡**；推理 AWQ 与训练基座 **不是同一个文件**。
+#### 5.1.6 三个概念串起来
+
+1. **QLoRA** = 4bit 冻住大模型 + 只训 LoRA 小 adapter → 6GB 才能碰 7B。  
+2. **显存** ≈ 权重（4bit）+ 激活（seq × batch）+ 优化器（8bit Adam）→ OOM 时先砍 **seq**，再砍 **LoRA r**。  
+3. **训练基座 ≠ 推理 AWQ**：训练产物是 `models/qlora-adapter/`；接到 vLLM AWQ 上需 **merge** 或 **`--enable-lora`（非 AWQ 基座）**（pitfalls #7）。
+
+**口诀**：显存不够先砍 **seq_len** 和 **batch**，再降 **LoRA r**；QLoRA 必须 **4bit + gradient_checkpointing + single_gpu**；推理 AWQ 与训练 `base_model` **不是同一个文件**。
+
+**延伸阅读**：踩坑实例见 [finetune_pitfalls.md](./finetune_pitfalls.md) #2、#7、#9–#13；本机验收清单见本文 §9。
 
 ---
 

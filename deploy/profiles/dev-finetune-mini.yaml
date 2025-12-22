@@ -1,5 +1,6 @@
 # 6GB 本机「20 分钟迷你 epoch」专用 — 防 OOM、小数据集可出 optimizer step
 # 用法：train_qlora.py --profile dev-finetune-mini
+# 参数含义与学习：docs/m5_finetune.md §5.1
 # 若仍 OOM / CPU offload 报错 → 放弃本机训练，见 docs/m5_online_train.md
 # 勿用于线上完整训练；线上见 train-gpu-24g
 
