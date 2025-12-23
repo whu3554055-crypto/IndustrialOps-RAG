@@ -8,6 +8,8 @@
 |------|------|
 | [docs/m0_infra.md](docs/m0_infra.md) | **M0 基础设施**（Profile、Compose、K8s） |
 | [docs/m1_ingest.md](docs/m1_ingest.md) | M1 ingest |
+| [docs/m5_finetune.md](docs/m5_finetune.md) | M5 QLoRA |
+| [docs/m6_eval.md](docs/m6_eval.md) | **M6** RAGAS CI、Grafana、Helm 一键 |
 | [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) | **总方案（必读）** |
 | [docs/COLLABORATION.md](docs/COLLABORATION.md) | **对话 token 拍板** + 用户代劳命令 + 省 token 提醒 |
 | [docs/architecture.md](docs/architecture.md) | 架构与时序 |
@@ -26,6 +28,21 @@ docs/           # 设计与 ADR
 k8s-learning/   # K8s 打卡清单
 tests/
 ```
+
+## 新环境 15 分钟问答（M6 验收）
+
+详见 [docs/m6_eval.md](docs/m6_eval.md) §6。
+
+```powershell
+python -m venv .venv; .\.venv\Scripts\Activate.ps1; pip install -e ".[dev]"
+copy .env.example .env
+docker compose -f deploy/compose/docker-compose.yml up -d
+# vLLM + Gateway 见 COLLABORATION §3.5–3.6
+curl -X POST http://localhost:8080/v1/chat -H "Content-Type: application/json" -d "{\"session_id\":\"demo\",\"query\":\"故障码 E1024 如何处理？\"}"
+python scripts\verify_m6.py --write-report
+```
+
+Helm 一键：`.\scripts\one_click_k8s.ps1`（WSL/Linux：`bash scripts/one_click_k8s.sh`）。
 
 ## 快速开始（M0）
 

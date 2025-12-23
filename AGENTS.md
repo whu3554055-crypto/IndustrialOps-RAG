@@ -21,4 +21,4 @@
 
 ## 当前状态
 
-M0–M4 已完成；**M5 本机已完成**（2026-06-02，见 `docs/evolution.md`）；**M6 待做**：RAGAS CI 等。验收：`verify_m0.py` … `verify_m5.py`。
+M0–M5 已完成；**M6 脚手架已完成**（2026-06-02，见 `docs/evolution.md`）；**M7 待做**：真实脱敏语料。验收：`verify_m0.py` … `verify_m6.py`。

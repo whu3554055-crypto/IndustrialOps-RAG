@@ -21,5 +21,6 @@
 | 2026-05-31 | 微调与 vLLM GPU 互斥 | 训练前停 vLLM 或 K8s scale 0；与 M4 分时一致 |
 | 2026-05-31 | M5 完整 epoch 在 24GB 线上跑 | 本机 6GB 仅 dry-run；`train-gpu-24g` + [m5_online_train.md](./m5_online_train.md)（默认 AutoDL 4090） |
 | 2026-06-02 | M5 本机迷你 epoch 验收完成、不做线上 epoch | RTX 3060 6GB + `dev-finetune-mini`（single_gpu/384/qlora_r4）已跑通 adapter；RAGAS 用 `--fill-example` 占位至 M6 |
+| 2026-06-02 | M6 RAGAS CI 用 dry-run stub | 真评测须 Gateway+vLLM 用户代劳；CI/`verify_m6` 只验流水线与 Helm 模板 |
 
 <!-- 新决策追加在表末 -->

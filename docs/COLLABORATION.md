@@ -436,6 +436,28 @@ tar czvf qlora-adapter.tgz -C models qlora-adapter
 python scripts/load_profile.py dev-single-node
 ```
 
+### 3.11 M6 — RAGAS / 验收 / 一键 Helm
+
+> **学习文档**：[m6_eval.md](./m6_eval.md)。
+
+```powershell
+# CI 等价 dry-run（无 Gateway）
+python pipelines\evaluation\run_ragas.py --dry-run --golden data\eval\golden.jsonl.example
+
+# M6 脚手架验收
+python scripts\verify_m6.py --write-report
+pytest tests\test_ragas_m6.py -q
+
+# 真 RAGAS（须 Gateway + vLLM 就绪，大规模须拍板）
+copy data\eval\golden.jsonl.example data\eval\golden.jsonl
+python pipelines\evaluation\run_ragas.py --golden data\eval\golden.jsonl --gateway http://localhost:8080
+
+# Helm 一键（k3d + GPU）
+.\scripts\one_click_k8s.ps1
+```
+
+**省 token**：指标摘要留在 `reports/ragas_report.json`；聊天只贴五指标数字。
+
 ---
 
 ## 4. 省 Token 节点提醒（Agent 必须主动提示）

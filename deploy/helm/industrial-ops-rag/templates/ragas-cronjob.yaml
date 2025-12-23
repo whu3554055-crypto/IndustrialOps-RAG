@@ -1,0 +1,42 @@
+{{- if .Values.evaluation.ragasCronJob.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "ior.fullname" . }}-ragas
+  labels:
+    {{- include "ior.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ragas
+spec:
+  schedule: {{ .Values.evaluation.ragasCronJob.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .Values.evaluation.ragasCronJob.backoffLimit }}
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/component: ragas
+            app.kubernetes.io/instance: {{ .Release.Name }}
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: ragas
+              image: "{{ .Values.evaluation.ragasCronJob.image.repository }}:{{ .Values.evaluation.ragasCronJob.image.tag }}"
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: IOR_PROFILE
+                  value: {{ .Values.global.profile | quote }}
+              command:
+                - python
+                - pipelines/evaluation/run_ragas.py
+                - --golden
+                - {{ .Values.evaluation.ragasCronJob.goldenPath | quote }}
+                - --gateway
+                - {{ .Values.evaluation.ragasCronJob.gatewayUrl | quote }}
+                - --output
+                - {{ .Values.evaluation.ragasCronJob.outputPath | quote }}
+              resources:
+                {{- toYaml .Values.evaluation.ragasCronJob.resources | nindent 16 }}
+{{- end }}

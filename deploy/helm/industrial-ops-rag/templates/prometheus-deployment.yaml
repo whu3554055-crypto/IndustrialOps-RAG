@@ -1,0 +1,80 @@
+{{- if .Values.monitoring.prometheus.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ior.fullname" . }}-prometheus
+  labels:
+    {{- include "ior.labels" . | nindent 4 }}
+    app.kubernetes.io/component: prometheus
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 30s
+      evaluation_interval: 30s
+    scrape_configs:
+      - job_name: vllm
+        static_configs:
+          - targets: ["{{ include "ior.fullname" . }}-vllm:8000"]
+        metrics_path: /metrics
+      - job_name: gateway
+        static_configs:
+          - targets: ["{{ include "ior.fullname" . }}-gateway:{{ .Values.gateway.service.port }}"]
+        metrics_path: /v1/health
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ior.fullname" . }}-prometheus
+  labels:
+    {{- include "ior.labels" . | nindent 4 }}
+    app.kubernetes.io/component: prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: prometheus
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: prometheus
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: prometheus
+          image: "{{ .Values.monitoring.prometheus.image.repository }}:{{ .Values.monitoring.prometheus.image.tag }}"
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.path=/prometheus
+          ports:
+            - containerPort: 9090
+              name: http
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus
+          {{- with .Values.monitoring.prometheus.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "ior.fullname" . }}-prometheus
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ior.fullname" . }}-prometheus
+  labels:
+    {{- include "ior.labels" . | nindent 4 }}
+    app.kubernetes.io/component: prometheus
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9090
+      targetPort: 9090
+      name: http
+  selector:
+    app.kubernetes.io/component: prometheus
+    app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}

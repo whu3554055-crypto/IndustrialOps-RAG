@@ -5,6 +5,8 @@
 
 ## 安装（单机 dev）
 
+> **M6 一键**：`scripts/one_click_k8s.sh` / `one_click_k8s.ps1`（含下列 helm 命令）。
+
 ```bash
 # 创建集群（示例 k3d，GPU 节点）
 k3d cluster create industrial-rag --agents 1 --gpus 1

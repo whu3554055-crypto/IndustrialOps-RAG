@@ -115,6 +115,13 @@ finetune:
   learning_rate: 2.0e-4
   num_train_epochs: 1
 
+evaluation:
+  ragas:
+    golden_path: data/eval/golden.jsonl
+    gateway_url: http://localhost:8080
+    judge_base_url: http://localhost:8000/v1  # RAGAS judge；默认同 vLLM OpenAI API
+    judge_model: Qwen/Qwen2.5-7B-Instruct-AWQ
+
 keda:
   enabled: true  # K8s 自动扩缩 vLLM；本机 Docker 可不装 KEDA，验收只查此项为 true
   vllm:

@@ -68,8 +68,18 @@ keda:
 monitoring:
   prometheus:
     enabled: true
+    image:
+      repository: prom/prometheus
+      tag: v2.52.0
+    resources: {}
   grafana:
     enabled: true
+    image:
+      repository: grafana/grafana
+      tag: "11.0.0"
+    adminUser: admin
+    adminPassword: ior_dev  # 生产请改 Secret
+    resources: {}
 
 ingest:
   cronJob:
@@ -78,6 +88,20 @@ ingest:
 evaluation:
   ragasCronJob:
     enabled: false
+    schedule: "0 3 * * 0"
+    backoffLimit: 1
+    goldenPath: data/eval/golden.jsonl
+    gatewayUrl: http://ior-gateway:8080
+    outputPath: /reports/ragas_report.json
+    image:
+      repository: industrial-ops-rag/gateway
+      tag: "0.1.0"
+    resources:
+      limits:
+        memory: 2Gi
+      requests:
+        memory: 512Mi
+        cpu: 250m
 
 finetune:
   trainJob:

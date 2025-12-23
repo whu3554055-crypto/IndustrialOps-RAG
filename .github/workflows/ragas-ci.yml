@@ -1,0 +1,40 @@
+name: RAGAS CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  verify-m6:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install package
+        run: pip install -e ".[dev]"
+
+      - name: RAGAS dry-run
+        run: |
+          python pipelines/evaluation/run_ragas.py \
+            --dry-run \
+            --golden data/eval/golden.jsonl.example \
+            --output reports/ragas_ci_dryrun.json
+
+      - name: M6 verify
+        run: python scripts/verify_m6.py --write-report
+
+      - name: Unit tests
+        run: pytest tests/test_ragas_m6.py -q
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m6-verify
+          path: reports/m6_verify.json

@@ -90,6 +90,7 @@ ingest:
 evaluation:
   ragasCronJob:
     enabled: false
+    gatewayUrl: http://ior-gateway:8080
 
 finetune:
   trainJob:
