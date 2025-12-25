@@ -21,4 +21,4 @@
 
 ## 当前状态
 
-M0–M5 已完成；**M6 脚手架已完成**（2026-06-02，见 `docs/evolution.md`）；**M7 待做**：真实脱敏语料。验收：`verify_m0.py` … `verify_m6.py`。
+M0–M6 已完成；**M7 脚手架已完成**（2026-06-02，见 `docs/evolution.md`）。本机可跳过**执行**：ingest/vLLM/live demo/真 RAGAS；**验收** `verify_m7` 必跑。验收链：`verify_m0.py` … `verify_m7.py`。

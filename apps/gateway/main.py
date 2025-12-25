@@ -4,6 +4,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from apps.agent.pipeline import run_agentic_rag
+from apps.feedback import FeedbackEvent, append_feedback
 from apps.config import get_settings, load_profile
 from apps.generation.llm_router import generate, list_backend_status  # M4: docs/m4_serving.md
 from apps.retrieval.langchain.hybrid_chain import retrieve_context
@@ -30,6 +31,7 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     citations: list[dict] = Field(default_factory=list)
+    message_id: str | None = Field(None, description="与 retrieval_log_id 相同，供 /v1/feedback 关联")
     retrieval_log_id: str | None = None
     refused: bool = False
 
@@ -39,6 +41,8 @@ class FeedbackRequest(BaseModel):
     message_id: str
     rating: int = Field(..., ge=-1, le=1, description="-1 踩 / 1 赞")
     comment: str | None = None
+    query: str | None = None
+    answer_preview: str | None = None
 
 
 class SearchRequest(BaseModel):
@@ -137,10 +141,12 @@ async def chat(req: ChatRequest) -> ChatResponse:
             status_code=503,
             detail=f"Agent pipeline failed: {exc}",
         ) from exc
+    log_id = result.retrieval_log_id
     return ChatResponse(
         answer=result.answer,
         citations=result.citations,
-        retrieval_log_id=result.retrieval_log_id,
+        message_id=log_id,
+        retrieval_log_id=log_id,
         refused=result.refused,
     )
 
@@ -177,8 +183,18 @@ async def search(req: SearchRequest) -> SearchResponse:
 
 @app.post("/v1/feedback")
 async def feedback(req: FeedbackRequest) -> dict:
-    # TODO: 写入 PostgreSQL
-    return {"ok": True, "session_id": req.session_id}
+    row = append_feedback(
+        FeedbackEvent(
+            session_id=req.session_id,
+            message_id=req.message_id,
+            rating=req.rating,
+            comment=req.comment,
+            query=req.query,
+            answer_preview=req.answer_preview,
+            retrieval_log_id=req.message_id,
+        )
+    )
+    return {"ok": True, "session_id": req.session_id, "event_id": row.get("event_id"), "stored": row.get("stored")}
 
 
 @app.post("/v1/ingest")

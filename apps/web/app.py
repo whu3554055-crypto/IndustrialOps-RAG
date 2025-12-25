@@ -1,12 +1,9 @@
-"""Gradio 中文 Web UI — 调用 Gateway API.
+"""Gradio 中文 Web UI — M7 业务演示入口.
 
-TODO：Gradio ChatInterface → POST /v1/chat
-M3 验收以 API + verify_m3 为准；见 docs/m3_agent.md §10
+学习文档：docs/m7_demo.md §6
 """
 
-def main() -> None:
-    print("Web UI scaffold — implement in M3 with Gradio")
-
+from apps.web.demo_ui import main
 
 if __name__ == "__main__":
     main()

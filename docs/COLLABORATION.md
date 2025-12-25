@@ -458,6 +458,30 @@ python pipelines\evaluation\run_ragas.py --golden data\eval\golden.jsonl --gatew
 
 **省 token**：指标摘要留在 `reports/ragas_report.json`；聊天只贴五指标数字。
 
+### 3.12 M7 — 脱敏语料 / 反馈 / 业务演示
+
+> **学习文档**：[m7_demo.md](./m7_demo.md)。  
+> **跳过**仅指因硬件/环境不足可不跑的**执行操作**；`verify_m7` 脚手架验收仍须 PASS。
+
+```powershell
+# ── 必跑：脚手架验收（无 GPU / 无 vLLM）──
+python scripts\verify_m7.py --write-report
+pytest tests\test_m7_feedback.py -q
+
+# ── 以下执行操作：硬件允许再跑，6GB 可整段跳过 ──
+python scripts\seed_demo_corpus.py
+python pipelines\ingest\run_ingest.py --input data/raw --batch-size 8
+python scripts\verify_m1.py --write-report
+python scripts\init_feedback_db.py
+uvicorn apps.gateway.main:app --host 0.0.0.0 --port 8080
+$env:GATEWAY_URL="http://localhost:8080"; python apps\web\demo_ui.py
+python pipelines\feedback\export_feedback.py --golden-candidates data\eval\golden_candidates.jsonl
+copy data\eval\golden_m7.jsonl.example data\eval\golden_m7.jsonl
+python pipelines\evaluation\run_ragas.py --golden data\eval\golden_m7.jsonl --gateway http://localhost:8080
+```
+
+**省 token**：交付以 `verify_m7` 为准；跳过 ingest/RAGAS/live 后无需解释失败，除非你在跑其中某步。
+
 ---
 
 ## 4. 省 Token 节点提醒（Agent 必须主动提示）

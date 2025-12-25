@@ -23,5 +23,8 @@
 | 2026-06-02 | M5 本机迷你 epoch 验收完成、不做线上 epoch | RTX 3060 6GB + `dev-finetune-mini`（single_gpu/384/qlora_r4）已跑通 adapter；RAGAS 用 `--fill-example` 占位至 M6 |
 | 2026-06-02 | M6 RAGAS CI 用 dry-run stub | 真评测须 Gateway+vLLM 用户代劳；CI/`verify_m6` 只验流水线与 Helm 模板 |
 | 2026-06-02 | M6 15min live 问答本机跳过 | RTX 3060 6GB：vLLM 首条 502/超时 + CPU 检索冷启动；验收以 `verify_m6` 为准 |
+| 2026-06-02 | M7 demo 语料放 `data/corpus/demo` | `data/raw` 仍 gitignore；seed 复制到 `raw/samples` 再 ingest |
+| 2026-06-02 | M7 反馈默认 file 后端 | 无 PostgreSQL 也能闭环；生产可切 `demo.feedback_backend: postgresql` |
+| 2026-06-02 | M7 本机可跳过的是执行非验收 | ingest/vLLM/live demo/真 RAGAS 因硬件可不跑；`verify_m7`+pytest 必 PASS |
 
 <!-- 新决策追加在表末 -->

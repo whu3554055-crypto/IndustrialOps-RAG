@@ -34,6 +34,7 @@ data/processed/**
 data/eval/golden.jsonl
 data/eval/*.jsonl
 !data/eval/golden.jsonl.example
+!data/eval/golden_m7.jsonl.example
 !data/eval/.gitkeep
 
 models/

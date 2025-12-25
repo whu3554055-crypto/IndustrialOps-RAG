@@ -10,6 +10,7 @@
 | [docs/m1_ingest.md](docs/m1_ingest.md) | M1 ingest |
 | [docs/m5_finetune.md](docs/m5_finetune.md) | M5 QLoRA |
 | [docs/m6_eval.md](docs/m6_eval.md) | **M6** RAGAS CI、Grafana、Helm 一键 |
+| [docs/m7_demo.md](docs/m7_demo.md) | **M7** 脱敏 demo 语料、反馈、Gradio |
 | [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) | **总方案（必读）** |
 | [docs/COLLABORATION.md](docs/COLLABORATION.md) | **对话 token 拍板** + 用户代劳命令 + 省 token 提醒 |
 | [docs/architecture.md](docs/architecture.md) | 架构与时序 |

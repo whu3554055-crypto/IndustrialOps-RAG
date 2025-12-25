@@ -122,6 +122,13 @@ evaluation:
     judge_base_url: http://localhost:8000/v1  # RAGAS judge；默认同 vLLM OpenAI API
     judge_model: Qwen/Qwen2.5-7B-Instruct-AWQ
 
+demo:
+  corpus_path: data/corpus/demo  # 脱敏演示语料（git 跟踪）；ingest 前 seed_demo_corpus.py
+  golden_example: data/eval/golden_m7.jsonl.example  # M7 业务 golden 模板
+  gateway_url: http://localhost:8080
+  feedback_backend: file  # file | postgresql；本机默认 file 免 DB 迁移
+  feedback_file: reports/feedback_events.jsonl
+
 keda:
   enabled: true  # K8s 自动扩缩 vLLM；本机 Docker 可不装 KEDA，验收只查此项为 true
   vllm:

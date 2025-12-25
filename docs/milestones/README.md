@@ -23,7 +23,7 @@
 | **M4** | **[m4_serving.md](../m4_serving.md)** | **已完成** |
 | **M5** | **[m5_finetune.md](../m5_finetune.md)** + [m5_online_train.md](../m5_online_train.md) | **本地完整**；epoch 在 [线上 4090](../m5_online_train.md) |
 | **M6** | **[m6_eval.md](../m6_eval.md)** | **脚手架完成**（RAGAS CI + Grafana + 一键 Helm） |
-| M7+ | 按 PROJECT_PLAN 推进 | — |
+| **M7** | **[m7_demo.md](../m7_demo.md)** | **脚手架完成**（脱敏语料 + 反馈 + Gradio demo） |
 
 ## 新里程碑 Agent  checklist
 
