@@ -185,6 +185,8 @@ async def async_main(args: argparse.Namespace) -> int:
         return 1
 
     golden = load_golden(golden_path)
+    if args.limit is not None and args.limit > 0:
+        golden = golden[: args.limit]
     if args.dry_run:
         body = dry_run_report(golden)
     else:
@@ -207,6 +209,12 @@ def main() -> None:
     parser.add_argument("--output", default="reports/ragas_report.json")
     parser.add_argument("--gateway", default=None, help="Gateway base URL for live eval")
     parser.add_argument("--dry-run", action="store_true", help="CI mode — no Gateway/LLM")
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="仅评测前 N 条 golden（演示/省本机时间；CI 常用 3）",
+    )
     args = parser.parse_args()
 
     import asyncio

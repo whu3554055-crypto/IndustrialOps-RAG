@@ -30,6 +30,9 @@ data/raw/**
 data/processed/**
 !data/raw/.gitkeep
 !data/processed/.gitkeep
+# M7 真实语料目录（仅保留 README）
+data/corpus/business/**
+!data/corpus/business/README.md
 # 评测集：保留 example 模板，忽略本地 golden
 data/eval/golden.jsonl
 data/eval/*.jsonl

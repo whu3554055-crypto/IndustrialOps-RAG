@@ -7,7 +7,7 @@ on:
     branches: [main, master]
 
 jobs:
-  verify-m6:
+  verify-scaffold:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,22 +19,36 @@ jobs:
       - name: Install package
         run: pip install -e ".[dev]"
 
-      - name: RAGAS dry-run
+      - name: RAGAS dry-run (M6 golden)
         run: |
           python pipelines/evaluation/run_ragas.py \
             --dry-run \
             --golden data/eval/golden.jsonl.example \
             --output reports/ragas_ci_dryrun.json
 
+      - name: RAGAS dry-run (M7 golden, mini)
+        run: |
+          python pipelines/evaluation/run_ragas.py \
+            --dry-run \
+            --golden data/eval/golden_m7.jsonl.example \
+            --limit 3 \
+            --output reports/ragas_m7_ci_dryrun.json
+
       - name: M6 verify
         run: python scripts/verify_m6.py --write-report
 
-      - name: Unit tests
-        run: pytest tests/test_ragas_m6.py -q
+      - name: M7 verify
+        run: python scripts/verify_m7.py --write-report
 
-      - name: Upload report
+      - name: Unit tests
+        run: pytest tests/test_ragas_m6.py tests/test_m7_feedback.py tests/test_golden_m7_m1_align.py -q
+
+      - name: Upload reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: m6-verify
-          path: reports/m6_verify.json
+          name: m6-m7-verify
+          path: |
+            reports/m6_verify.json
+            reports/m7_verify.json
+            reports/ragas_m7_ci_dryrun.json

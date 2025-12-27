@@ -170,10 +170,53 @@ pytest tests\test_m7_feedback.py -q
 
 ---
 
-## 8. 与 M6 的分工
+## 8. CI（仅脚手架，零 GPU）
+
+GitHub Actions：`.github/workflows/ragas-ci.yml`
+
+| CI 步骤 | 说明 |
+|---------|------|
+| `verify_m7` + `test_m7_feedback` | **必跑**；不 ingest、不启 vLLM |
+| `run_ragas --dry-run --golden golden_m7 --limit 3` | mini 条数，无 LLM 调用 |
+
+**不消耗 Cursor 对话 token**（在 GitHub 跑）；也 **不应** 把 ingest/真 RAGAS 放进 CI（费时、要中间件）。
+
+---
+
+## 9. 真实业务语料 vs `data/corpus/demo`
+
+| 方式 | 适用 | git |
+|------|------|-----|
+| 继续用 `demo` | 面试/开源演示 | 跟踪 **5 篇** 脱敏 MD（git 公开样例） |
+| 替换 `demo` 内文件 | 脱敏后仍可当公开样例 | 可提交（须过 §5 清单） |
+| `data/corpus/business/` | 真实脱敏语料 | **默认 gitignore**，仅 README 进库 |
+
+```powershell
+python scripts\seed_demo_corpus.py --src data\corpus\business --dst data\raw\business
+python pipelines\ingest\run_ingest.py --input data/raw --max-docs 3 --batch-size 4
+```
+
+`golden_m7.jsonl.example` 的 `doc_ids` 需与入库后的 `source_file` 一致；替换语料后应同步改 golden（或从 `export_feedback` 生成候选）。
+
+---
+
+## 10. Mini 批量（演示、省本机时间 / 少贴日志）
+
+| 操作 | 命令 | 说明 |
+|------|------|------|
+| RAGAS dry-run | `run_ragas.py --dry-run --limit 3` | **无 Gateway**；CI 同款 |
+| RAGAS live | `run_ragas.py --limit 3 --gateway ...` | 仍要 vLLM；仅 3 条，省 GPU 时间 |
+| ingest | `run_ingest.py --max-docs 3 --batch-size 4` | 少 embed 批次 |
+
+对 **Agent 对话 token**：你本地跑 mini 后只把 `reports/*.json` 五指标或 `verify_m*` 最后一行贴回即可，**勿贴** ingest/RAGAS 全文 stdout（见 COLLABORATION §3）。
+
+---
+
+## 11. 与 M6 的分工
 
 | | M6 | M7 |
 |--|----|-----|
-| golden | `golden.jsonl.example` 通用 | `golden_m7.jsonl.example` 对齐 demo 语料 |
+| golden | `golden.jsonl.example` 通用 | `golden_m7.jsonl.example` 对齐语料 |
 | 反馈 | API 占位 | file/PostgreSQL + 导出候选 |
 | 演示 | 15min README | Gradio + 业务话术 |
+| CI | `verify_m6` + dry-run | + `verify_m7` + golden_m7 `--limit 3` |

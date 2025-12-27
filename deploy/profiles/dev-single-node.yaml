@@ -124,7 +124,10 @@ evaluation:
 
 demo:
   corpus_path: data/corpus/demo  # 脱敏演示语料（git 跟踪）；ingest 前 seed_demo_corpus.py
+  business_corpus_path: data/corpus/business  # 脱敏真实语料（本地，gitignore）；见该目录 README
   golden_example: data/eval/golden_m7.jsonl.example  # M7 业务 golden 模板
+  eval_limit: 3  # 演示用 RAGAS/抽检条数；CI dry-run 对齐
+  ingest_max_docs: 5  # 演示 ingest 文档上限（与公开样例篇数一致；mini 可改 3）
   gateway_url: http://localhost:8080
   feedback_backend: file  # file | postgresql；本机默认 file 免 DB 迁移
   feedback_file: reports/feedback_events.jsonl

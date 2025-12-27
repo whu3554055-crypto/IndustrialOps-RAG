@@ -477,10 +477,14 @@ uvicorn apps.gateway.main:app --host 0.0.0.0 --port 8080
 $env:GATEWAY_URL="http://localhost:8080"; python apps\web\demo_ui.py
 python pipelines\feedback\export_feedback.py --golden-candidates data\eval\golden_candidates.jsonl
 copy data\eval\golden_m7.jsonl.example data\eval\golden_m7.jsonl
-python pipelines\evaluation\run_ragas.py --golden data\eval\golden_m7.jsonl --gateway http://localhost:8080
+python pipelines\evaluation\run_ragas.py --golden data\eval\golden_m7.jsonl --gateway http://localhost:8080 --limit 3
+
+# 真实脱敏语料（放 data\corpus\business\，勿提交未脱敏原文）
+python scripts\seed_demo_corpus.py --src data\corpus\business --dst data\raw\business
+python pipelines\ingest\run_ingest.py --input data/raw --max-docs 3 --batch-size 4
 ```
 
-**省 token**：交付以 `verify_m7` 为准；跳过 ingest/RAGAS/live 后无需解释失败，除非你在跑其中某步。
+**省 token**：CI 已跑 `verify_m7`；本机 mini 只贴 `reports/*.json` 摘要。ingest/真 RAGAS 硬件不足可跳过。
 
 ---
 

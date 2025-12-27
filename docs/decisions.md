@@ -26,5 +26,6 @@
 | 2026-06-02 | M7 demo 语料放 `data/corpus/demo` | `data/raw` 仍 gitignore；seed 复制到 `raw/samples` 再 ingest |
 | 2026-06-02 | M7 反馈默认 file 后端 | 无 PostgreSQL 也能闭环；生产可切 `demo.feedback_backend: postgresql` |
 | 2026-06-02 | M7 本机可跳过的是执行非验收 | ingest/vLLM/live demo/真 RAGAS 因硬件可不跑；`verify_m7`+pytest 必 PASS |
+| 2026-06-02 | CI 含 verify_m7 + golden_m7 dry-run --limit 3 | 不跑 ingest/真 RAGAS；真实语料放 `data/corpus/business`（gitignore） |
 
 <!-- 新决策追加在表末 -->

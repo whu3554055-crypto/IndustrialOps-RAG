@@ -31,6 +31,12 @@ def main() -> None:
         default=True,
         help="重建 Milvus collection / OpenSearch index（默认开启）",
     )
+    parser.add_argument(
+        "--max-docs",
+        type=int,
+        default=None,
+        help="仅 ingest 前 N 篇文档（演示/调试；按文件名排序截断）",
+    )
     args = parser.parse_args()
 
     input_dir = Path(args.input)
@@ -38,6 +44,8 @@ def main() -> None:
         input_dir = ROOT / input_dir
 
     docs = load_documents(input_dir)
+    if args.max_docs is not None and args.max_docs > 0:
+        docs = docs[: args.max_docs]
     if not docs:
         print(f"[ingest] 未找到 .md/.txt 文档: {input_dir}", file=sys.stderr)
         sys.exit(1)

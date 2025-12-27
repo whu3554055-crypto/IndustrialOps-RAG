@@ -80,10 +80,12 @@ flowchart TD
 
 ```
 data/raw/
-  samples/
+  samples/                   ← python scripts/seed_demo_corpus.py 从 data/corpus/demo 复制
     pump_p101_manual.md      ← 离心泵 P-101
     reactor_r201_sop.md      ← 反应釜 R-201
     compressor_sa01_fault_codes.md  ← 空压机 SA-01
+    heat_exchanger_e301_manual.md   ← 换热器 E-301
+    conveyor_cv110_sop.md    ← 皮带机 CV-110
 ```
 
 - 支持后缀：`.md` / `.txt` / `.markdown`

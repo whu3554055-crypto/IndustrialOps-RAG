@@ -22,6 +22,7 @@ from apps.feedback import FeedbackEvent, append_feedback, load_feedback_events  
 from pipelines.evaluation.run_ragas import load_golden  # noqa: E402
 
 M7_DOC = ROOT / "docs" / "m7_demo.md"
+CI_WORKFLOW = ROOT / ".github" / "workflows" / "ragas-ci.yml"
 DEMO_CORPUS = ROOT / "data" / "corpus" / "demo"
 GOLDEN_M7 = ROOT / "data" / "eval" / "golden_m7.jsonl.example"
 SEED_SCRIPT = ROOT / "scripts" / "seed_demo_corpus.py"
@@ -33,6 +34,8 @@ REQUIRED_CORPUS = (
     "pump_p101_manual.md",
     "reactor_r201_sop.md",
     "compressor_sa01_fault_codes.md",
+    "heat_exchanger_e301_manual.md",
+    "conveyor_cv110_sop.md",
 )
 
 
@@ -45,7 +48,7 @@ def _check(label: str, ok: bool, detail: str = "") -> bool:
 def _case_demo_corpus(report: dict) -> bool:
     missing = [n for n in REQUIRED_CORPUS if not (DEMO_CORPUS / n).is_file()]
     ok = not missing
-    detail = "3 files" if ok else f"missing {missing}"
+    detail = f"{len(REQUIRED_CORPUS) - len(missing)}/{len(REQUIRED_CORPUS)} files" if ok else f"missing {missing}"
     _check("demo corpus (tracked)", ok, detail)
     report["cases"].append({"name": "demo_corpus", "ok": ok})
     return ok
@@ -127,6 +130,15 @@ def _case_web_demo(report: dict) -> bool:
     return ok
 
 
+def _case_ci_workflow(report: dict) -> bool:
+    ok = CI_WORKFLOW.is_file()
+    text = CI_WORKFLOW.read_text(encoding="utf-8") if ok else ""
+    ok = ok and "verify_m7" in text and "golden_m7" in text
+    _check("GitHub CI includes verify_m7", ok)
+    report["cases"].append({"name": "ci_workflow", "ok": ok})
+    return ok
+
+
 def _case_m7_doc(report: dict) -> bool:
     ok = M7_DOC.is_file()
     text = M7_DOC.read_text(encoding="utf-8") if ok else ""
@@ -181,6 +193,7 @@ def main() -> None:
         _case_feedback_roundtrip(report),
         _case_export_script(report),
         _case_web_demo(report),
+        _case_ci_workflow(report),
         _case_m7_doc(report),
         _case_gateway_feedback_impl(report),
     ]

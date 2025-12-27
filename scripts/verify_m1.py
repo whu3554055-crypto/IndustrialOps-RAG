@@ -24,17 +24,18 @@ from pipelines.ingest.indexer import Embedder, resolve_embedding_model_path  # n
 TOP_K = 5
 PASS_THRESHOLD = 8  # 10 题中至少 8 题命中
 
+# 与 data/eval/golden_m7.jsonl.example 中 m1_aligned=true 的 10 题一致；ingest 后 source_file 为 samples/<file>
 M1_CASES: list[tuple[str, str]] = [
     ("P-101 出口压力正常范围是多少？", "pump_p101_manual.md"),
-    ("离心泵 P-101 用什么润滑油？", "pump_p101_manual.md"),
     ("P-101 故障码 E01 怎么处理？", "pump_p101_manual.md"),
     ("反应釜 R-201 什么情况下要按 ESD 紧急停车？", "reactor_r201_sop.md"),
     ("F201-02 搅拌电流高可能是什么原因？", "reactor_r201_sop.md"),
-    ("R-201 开车前搅拌器怎么检查？", "reactor_r201_sop.md"),
     ("空压站 ALM-101 排气温度过高怎么处理？", "compressor_sa01_fault_codes.md"),
-    ("ALM-102 主机过载有哪些原因？", "compressor_sa01_fault_codes.md"),
     ("SA-01 螺杆空压机排气量是多少？", "compressor_sa01_fault_codes.md"),
-    ("P-101 日常点检要关注轴承什么异常？", "pump_p101_manual.md"),
+    ("E-301 管壳式换热器设计换热面积是多少？", "heat_exchanger_e301_manual.md"),
+    ("E-301 检漏发现微漏点如何处理？", "heat_exchanger_e301_manual.md"),
+    ("CV-110 皮带机启动前必须确认哪些联锁？", "conveyor_cv110_sop.md"),
+    ("CV-110 跑偏报警 B201 怎么处理？", "conveyor_cv110_sop.md"),
 ]
 
 
