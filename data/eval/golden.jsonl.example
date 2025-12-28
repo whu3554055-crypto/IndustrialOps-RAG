@@ -1,2 +1,12 @@
-{"question": "故障码 E1024 如何处理？", "ground_truth": "过温保护：停机冷却、检查冷却水路、复位前确认温度。", "doc_ids": ["manual-xk200"], "category": "fault_code"}
-{"question": "泵体异响可能原因？", "ground_truth": "轴承磨损、气蚀、对中不良等，需结合润滑与入口压力排查。", "doc_ids": ["sop-pump-01"], "category": "symptom"}
+{"question": "P-101 出口压力正常范围是多少？", "ground_truth": "0.35～0.42 MPa；低于 0.30 MPa 需检查滤网与气蚀。", "doc_ids": ["samples/pump_p101_manual.md"], "category": "parameter"}
+{"question": "P-101 故障码 E01 怎么处理？", "ground_truth": "E01 为出口压力低：查入口阀、滤网压差与灌注；复位前确认入口全开并完成排气。", "doc_ids": ["samples/pump_p101_manual.md"], "category": "fault_code"}
+{"question": "反应釜 R-201 什么情况下要按 ESD 紧急停车？", "ground_truth": "釜温超联锁高限+5℃持续、釜压超设计90%、有毒气体二级报警、搅拌电流超130%伴异响等。", "doc_ids": ["samples/reactor_r201_sop.md"], "category": "safety"}
+{"question": "F201-02 搅拌电流高可能是什么原因？", "ground_truth": "黏度异常、桨叶脱落或缠绕、机械密封干磨等；需降速观察并按 ESD 条件评估停车。", "doc_ids": ["samples/reactor_r201_sop.md"], "category": "symptom"}
+{"question": "空压站 ALM-101 排气温度过高怎么处理？", "ground_truth": "查冷却水温差、清洗换热器、核对润滑油；仍高则降负荷，>110℃卸载停机。", "doc_ids": ["samples/compressor_sa01_fault_codes.md"], "category": "fault_code"}
+{"question": "SA-01 螺杆空压机排气量是多少？", "ground_truth": "额定排气量 12 m³/min（0.7 MPa 工况）。", "doc_ids": ["samples/compressor_sa01_fault_codes.md"], "category": "parameter"}
+{"question": "E-301 管壳式换热器设计换热面积是多少？", "ground_truth": "设计换热面积 186 m²。", "doc_ids": ["samples/heat_exchanger_e301_manual.md"], "category": "parameter"}
+{"question": "E-301 检漏发现微漏点如何处理？", "ground_truth": "降负荷、记录泄漏侧、24h 内停车消漏；禁止带压焊接，临时堵漏胶不超过 72h。", "doc_ids": ["samples/heat_exchanger_e301_manual.md"], "category": "procedure"}
+{"question": "CV-110 皮带机启动前必须确认哪些联锁？", "ground_truth": "张紧行程、跑偏开关复位、下游斗提运行或旁路、除铁器投用、急停回路自检等五项联锁。", "doc_ids": ["samples/conveyor_cv110_sop.md"], "category": "procedure"}
+{"question": "CV-110 跑偏报警 B201 怎么处理？", "ground_truth": "降速观察、查偏载与清扫器、调整张紧与托辊；二级 B202 则急停挂牌。", "doc_ids": ["samples/conveyor_cv110_sop.md"], "category": "fault_code"}
+{"question": "演示化工一线离心泵出口压力偏低，优先查什么？", "ground_truth": "查入口阀开度、滤网压差与泵体灌注，对应 P-101 故障码 E01 处理要点。", "doc_ids": ["samples/pump_p101_manual.md"], "category": "demo_scenario"}
+{"question": "聚合釜搅拌电流突然升高，现场第一步做什么？", "ground_truth": "降速观察 5 分钟，记录电流与异响，评估是否满足 R-201 ESD 条件。", "doc_ids": ["samples/reactor_r201_sop.md"], "category": "demo_scenario"}

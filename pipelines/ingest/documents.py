@@ -6,7 +6,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-SUPPORTED_SUFFIXES = {".md", ".txt", ".markdown"}
+SUPPORTED_SUFFIXES = {".md", ".txt", ".markdown", ".pdf"}
 
 
 @dataclass(frozen=True)
@@ -27,7 +27,12 @@ def load_documents(input_dir: Path) -> list[RawDocument]:
             continue
         if path.name.lower() == "readme.md":
             continue
-        text = path.read_text(encoding="utf-8", errors="replace").strip()
+        if path.suffix.lower() == ".pdf":
+            from pipelines.ingest.deepdoc.pdf_loader import extract_pdf_text
+
+            text = extract_pdf_text(path).strip()
+        else:
+            text = path.read_text(encoding="utf-8", errors="replace").strip()
         if not text:
             continue
         rel = path.relative_to(input_dir).as_posix()

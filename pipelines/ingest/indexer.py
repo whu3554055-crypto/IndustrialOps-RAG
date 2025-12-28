@@ -53,6 +53,9 @@ class MilvusIndexer:
         self._dim = dim
         self._client = MilvusClient(uri=f"http://{s.milvus_host}:{s.milvus_port}")
 
+    def has_collection(self) -> bool:
+        return bool(self._client.has_collection(self._collection_name))
+
     def recreate(self) -> None:
         if self._client.has_collection(self._collection_name):
             self._client.drop_collection(self._collection_name)
@@ -96,6 +99,15 @@ class MilvusIndexer:
         self._client.insert(collection_name=self._collection_name, data=rows)
         self._client.load_collection(self._collection_name)
 
+    def delete_by_doc_ids(self, doc_ids: list[str]) -> None:
+        if not doc_ids or not self.has_collection():
+            return
+        quoted = ", ".join(f'"{d}"' for d in doc_ids)
+        self._client.delete(
+            collection_name=self._collection_name,
+            filter=f"doc_id in [{quoted}]",
+        )
+
 
 class OpenSearchIndexer:
     def __init__(self, index_name: str) -> None:
@@ -107,6 +119,9 @@ class OpenSearchIndexer:
             verify_certs=False,
             ssl_show_warn=False,
         )
+
+    def exists(self) -> bool:
+        return bool(self._client.indices.exists(index=self._index))
 
     def recreate(self) -> None:
         if self._client.indices.exists(index=self._index):
@@ -143,3 +158,12 @@ class OpenSearchIndexer:
                 },
                 refresh=True,
             )
+
+    def delete_by_doc_ids(self, doc_ids: list[str]) -> None:
+        if not doc_ids or not self.exists():
+            return
+        self._client.delete_by_query(
+            index=self._index,
+            body={"query": {"terms": {"doc_id": doc_ids}}},
+            refresh=True,
+        )

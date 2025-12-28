@@ -21,4 +21,4 @@
 
 ## 当前状态
 
-M0–M6 已完成；**M7 脚手架已完成**（2026-06-02，见 `docs/evolution.md`）。本机可跳过**执行**：ingest/vLLM/live demo/真 RAGAS；**验收** `verify_m7` 必跑。验收链：`verify_m0.py` … `verify_m7.py`。
+M0–M7 代码已齐（见 `docs/post-m7-landing.md`）。**验收** `verify_m0`…`verify_m7` + pytest。本机/大显存才做：ingest 实测、vLLM live、真 RAGAS、TRT 压测、K8s 全绿。

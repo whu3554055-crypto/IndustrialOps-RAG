@@ -16,9 +16,60 @@ from pipelines.ingest.documents import load_documents
 from pipelines.ingest.indexer import Embedder, MilvusIndexer, OpenSearchIndexer, resolve_embedding_model_path
 
 
+def run_ingest_job(
+    *,
+    input_dir: Path,
+    batch_size: int = 8,
+    recreate: bool = True,
+    max_docs: int | None = None,
+) -> dict[str, int | str]:
+    """可被 Gateway /v1/ingest 或 CLI 调用."""
+    if not input_dir.is_absolute():
+        input_dir = ROOT / input_dir
+
+    docs = load_documents(input_dir)
+    if max_docs is not None and max_docs > 0:
+        docs = docs[:max_docs]
+    if not docs:
+        raise FileNotFoundError(f"No documents under {input_dir}")
+
+    chunks = chunk_documents(docs)
+    if not chunks:
+        raise ValueError("Chunking produced no chunks")
+
+    s = get_settings()
+    model_path = resolve_embedding_model_path()
+    embedder = Embedder(model_path, s.embedding_device)
+    vectors = embedder.encode([c.text for c in chunks], batch_size=batch_size)
+
+    milvus = MilvusIndexer(s.milvus_collection, embedder.dimension)
+    opensearch = OpenSearchIndexer(s.opensearch_index)
+
+    if recreate:
+        milvus.recreate()
+        opensearch.recreate()
+    else:
+        if not milvus.has_collection() or not opensearch.exists():
+            milvus.recreate()
+            opensearch.recreate()
+        else:
+            doc_ids = sorted({c.doc_id for c in chunks})
+            milvus.delete_by_doc_ids(doc_ids)
+            opensearch.delete_by_doc_ids(doc_ids)
+
+    milvus.insert(chunks, vectors)
+    opensearch.insert(chunks)
+    return {
+        "docs": len(docs),
+        "chunks": len(chunks),
+        "input": str(input_dir),
+        "recreate": recreate,
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="IndustrialOps-RAG ingest — md/txt → Milvus + OpenSearch",
+        description="IndustrialOps-RAG ingest — md/txt/pdf → Milvus + OpenSearch",
         epilog="示例: python pipelines/ingest/run_ingest.py --input data/raw --batch-size 8\n"
         "文档: docs/m1_ingest.md §5",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -29,7 +80,7 @@ def main() -> None:
         "--recreate",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="重建 Milvus collection / OpenSearch index（默认开启）",
+        help="重建索引；--no-recreate 时按 doc_id 覆盖增量",
     )
     parser.add_argument(
         "--max-docs",
@@ -40,39 +91,21 @@ def main() -> None:
     args = parser.parse_args()
 
     input_dir = Path(args.input)
-    if not input_dir.is_absolute():
-        input_dir = ROOT / input_dir
-
-    docs = load_documents(input_dir)
-    if args.max_docs is not None and args.max_docs > 0:
-        docs = docs[: args.max_docs]
-    if not docs:
-        print(f"[ingest] 未找到 .md/.txt 文档: {input_dir}", file=sys.stderr)
+    try:
+        result = run_ingest_job(
+            input_dir=input_dir,
+            batch_size=args.batch_size,
+            recreate=args.recreate,
+            max_docs=args.max_docs,
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"[ingest] {exc}", file=sys.stderr)
         sys.exit(1)
 
-    chunks = chunk_documents(docs)
-    if not chunks:
-        print("[ingest] 切块结果为空", file=sys.stderr)
-        sys.exit(1)
-
-    s = get_settings()
-    model_path = resolve_embedding_model_path()
-    print(f"[ingest] docs={len(docs)} chunks={len(chunks)} embed={model_path} device={s.embedding_device}")
-
-    embedder = Embedder(model_path, s.embedding_device)
-    texts = [c.text for c in chunks]
-    vectors = embedder.encode(texts, batch_size=args.batch_size)
-
-    milvus = MilvusIndexer(s.milvus_collection, embedder.dimension)
-    opensearch = OpenSearchIndexer(s.opensearch_index)
-    if args.recreate:
-        print(f"[ingest] recreate Milvus={s.milvus_collection} OpenSearch={s.opensearch_index}")
-        milvus.recreate()
-        opensearch.recreate()
-
-    milvus.insert(chunks, vectors)
-    opensearch.insert(chunks)
-    print(f"[ingest] done: {len(chunks)} chunks indexed")
+    print(
+        f"[ingest] done: {result['chunks']} chunks from {result['docs']} docs "
+        f"(recreate={result['recreate']})"
+    )
 
 
 if __name__ == "__main__":

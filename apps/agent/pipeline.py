@@ -19,6 +19,7 @@ from apps.agent.prompts import (
 )
 from apps.agent.rewrite import rewrite_query
 from apps.agent.session import append_turn, get_history
+from apps.retrieval_log import write_retrieval_log
 from apps.agent.tools.hybrid_search import hybrid_search
 from apps.agent.tools.self_check import check_answer_supported, check_retrieval_confidence
 from apps.config import get_settings, load_profile
@@ -121,8 +122,19 @@ async def run_agentic_rag(
     search_query = await rewrite_query(query, session_history)
     hits = await _retrieve(search_query, cfg)
 
+    def _log(refused: bool) -> None:
+        write_retrieval_log(
+            log_id=log_id,
+            session_id=session_id,
+            query=query,
+            search_query=search_query,
+            hits=hits,
+            refused=refused,
+        )
+
     if refuse_on_low_confidence and not check_retrieval_confidence(hits):
         append_turn(session_id, query, REFUSE_MESSAGE)
+        _log(refused=True)
         return PipelineResult(
             answer=REFUSE_MESSAGE,
             citations=[],
@@ -168,6 +180,7 @@ async def run_agentic_rag(
                 )
 
     append_turn(session_id, query, answer)
+    _log(refused=False)
     return PipelineResult(
         answer=answer,
         citations=hits_to_citations(hits),

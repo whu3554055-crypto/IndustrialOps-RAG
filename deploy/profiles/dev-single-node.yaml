@@ -122,6 +122,12 @@ evaluation:
     judge_base_url: http://localhost:8000/v1  # RAGAS judge；默认同 vLLM OpenAI API
     judge_model: Qwen/Qwen2.5-7B-Instruct-AWQ
 
+persistence:
+  session_backend: file  # file | postgresql
+  session_file: reports/chat_sessions.json
+  retrieval_log_backend: file
+  retrieval_log_file: reports/retrieval_logs.jsonl
+
 demo:
   corpus_path: data/corpus/demo  # 脱敏演示语料（git 跟踪）；ingest 前 seed_demo_corpus.py
   business_corpus_path: data/corpus/business  # 脱敏真实语料（本地，gitignore）；见该目录 README

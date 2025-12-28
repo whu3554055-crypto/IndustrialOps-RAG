@@ -114,8 +114,8 @@ python pipelines/ingest/run_ingest.py --input data/raw --batch-size 8
 |------|------|------|--------|
 | `--input` | `data/raw` | 原始文档根目录 | 自有语料路径 |
 | `--batch-size` | 8 | embedding 批大小 | OOM 降到 4；CPU 慢可保持 8 |
-| `--recreate` | **true** | 重建 Milvus/OpenSearch | 增量入库需 false（当前未实现追加逻辑，改语料后建议 true 全量重建） |
-| `--no-recreate` | — | 关闭重建 | 仅当索引空且手动管理时用 |
+| `--recreate` | **true** | 重建 Milvus/OpenSearch | 换语料全量重建 |
+| `--no-recreate` | — | 按 `doc_id` 删除旧 chunk 后写入 | 增量覆盖同一批文档 |
 
 **成功标志**：终端输出 `[ingest] done: N chunks indexed`。
 

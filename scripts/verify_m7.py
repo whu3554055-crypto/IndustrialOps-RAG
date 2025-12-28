@@ -151,7 +151,7 @@ def _case_m7_doc(report: dict) -> bool:
 def _case_gateway_feedback_impl(report: dict) -> bool:
     main_py = ROOT / "apps" / "gateway" / "main.py"
     text = main_py.read_text(encoding="utf-8")
-    ok = "append_feedback" in text and "TODO: 写入 PostgreSQL" not in text
+    ok = "append_feedback" in text and "run_ingest_job" in text
     _check("gateway feedback wired", ok)
     report["cases"].append({"name": "gateway_feedback", "ok": ok})
     return ok

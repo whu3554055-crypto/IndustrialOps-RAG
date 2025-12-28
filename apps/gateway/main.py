@@ -1,11 +1,15 @@
 """FastAPI Gateway — 会话、问答、反馈、健康检查."""
 
+import asyncio
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from apps.agent.pipeline import run_agentic_rag
 from apps.feedback import FeedbackEvent, append_feedback
-from apps.config import get_settings, load_profile
+from apps.config import ROOT, get_settings, load_profile
+from pipelines.ingest.run_ingest import run_ingest_job
 from apps.generation.llm_router import generate, list_backend_status  # M4: docs/m4_serving.md
 from apps.retrieval.langchain.hybrid_chain import retrieve_context
 from apps.retrieval.llamaindex.graph_engine import query_graph
@@ -34,6 +38,13 @@ class ChatResponse(BaseModel):
     message_id: str | None = Field(None, description="与 retrieval_log_id 相同，供 /v1/feedback 关联")
     retrieval_log_id: str | None = None
     refused: bool = False
+
+
+class IngestRequest(BaseModel):
+    input: str = Field(default="data/raw", description="原始文档根目录")
+    batch_size: int = Field(default=8, ge=1, le=64)
+    recreate: bool = True
+    max_docs: int | None = Field(default=None, ge=1, le=5000)
 
 
 class FeedbackRequest(BaseModel):
@@ -198,9 +209,25 @@ async def feedback(req: FeedbackRequest) -> dict:
 
 
 @app.post("/v1/ingest")
-async def ingest_trigger() -> dict:
-    # TODO: 触发 ingest Job 或本地 pipelines.ingest
-    return {"ok": True, "message": "ingest not implemented"}
+async def ingest_trigger(req: IngestRequest) -> dict:
+    input_dir = Path(req.input)
+    if not input_dir.is_absolute():
+        input_dir = ROOT / input_dir
+    try:
+        result = await asyncio.to_thread(
+            run_ingest_job,
+            input_dir=input_dir,
+            batch_size=req.batch_size,
+            recreate=req.recreate,
+            max_docs=req.max_docs,
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"ingest failed: {exc}") from exc
+    return {"ok": True, **result}
 
 
 def run() -> None:
