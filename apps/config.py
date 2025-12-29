@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     rerank_device: str = "cpu"
     gateway_host: str = "0.0.0.0"
     gateway_port: int = 8080
+    minio_endpoint: str = "localhost:9000"
+    minio_access_key: str = "minio"
+    minio_secret_key: str = "minio_dev"
+    minio_bucket: str = "ior-models"
 
 
 _DEFAULT_VLLM_MODEL = Settings.model_fields["vllm_model"].default  # type: ignore[index]

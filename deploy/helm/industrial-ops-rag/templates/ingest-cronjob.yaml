@@ -1,0 +1,47 @@
+{{- if .Values.ingest.cronJob.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "ior.fullname" . }}-ingest
+  labels:
+    {{- include "ior.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ingest
+spec:
+  schedule: {{ .Values.ingest.cronJob.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .Values.ingest.cronJob.backoffLimit }}
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/component: ingest
+            app.kubernetes.io/instance: {{ .Release.Name }}
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: ingest
+              image: "{{ .Values.ingest.cronJob.image.repository }}:{{ .Values.ingest.cronJob.image.tag }}"
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: IOR_PROFILE
+                  value: {{ .Values.global.profile | quote }}
+              command:
+                - python
+                - pipelines/ingest/run_ingest.py
+                - --input
+                - {{ .Values.ingest.cronJob.inputPath | quote }}
+                - --batch-size
+                - {{ .Values.ingest.cronJob.batchSize | quote }}
+                {{- if .Values.ingest.cronJob.maxDocs }}
+                - --max-docs
+                - {{ .Values.ingest.cronJob.maxDocs | quote }}
+                {{- end }}
+                {{- if not .Values.ingest.cronJob.recreate }}
+                - --no-recreate
+                {{- end }}
+              resources:
+                {{- toYaml .Values.ingest.cronJob.resources | nindent 16 }}
+{{- end }}

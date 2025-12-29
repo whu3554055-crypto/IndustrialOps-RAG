@@ -4,12 +4,19 @@ import asyncio
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
 from apps.agent.pipeline import run_agentic_rag
-from apps.feedback import FeedbackEvent, append_feedback
+from apps.feedback import FeedbackEvent, append_feedback, load_feedback_events
 from apps.config import ROOT, get_settings, load_profile
+from apps.ingest_k8s import trigger_ingest_cronjob
+from apps.metrics import inc_chat_request, render_prometheus
+from apps.minio_client import minio_health
+from apps.rate_limit import allow_request
+from apps.retrieval_log import load_recent_logs
 from pipelines.ingest.run_ingest import run_ingest_job
+from pipelines.feedback.export_feedback import export_golden_candidates
 from apps.generation.llm_router import generate, list_backend_status  # M4: docs/m4_serving.md
 from apps.retrieval.langchain.hybrid_chain import retrieve_context
 from apps.retrieval.llamaindex.graph_engine import query_graph
@@ -45,6 +52,7 @@ class IngestRequest(BaseModel):
     batch_size: int = Field(default=8, ge=1, le=64)
     recreate: bool = True
     max_docs: int | None = Field(default=None, ge=1, le=5000)
+    mode: str = Field(default="local", description="local | k8s（触发集群 CronJob 一次性 Job）")
 
 
 class FeedbackRequest(BaseModel):
@@ -117,7 +125,23 @@ async def health() -> dict:
         "profile": s.ior_profile,
         "llm_backend": s.llm_active_backend,
         "mutual_exclusive_gpu": profile.get("gpu", {}).get("mutual_exclusive_gpu", True),
+        "minio": minio_health(),
     }
+
+
+@app.get("/metrics")
+async def metrics() -> PlainTextResponse:
+    return PlainTextResponse(render_prometheus(), media_type="text/plain; version=0.0.4")
+
+
+@app.get("/v1/admin/retrieval-logs")
+async def admin_retrieval_logs(limit: int = 20) -> dict:
+    return {"logs": load_recent_logs(limit=min(limit, 100))}
+
+
+@app.get("/v1/admin/feedback")
+async def admin_feedback(limit: int = 50) -> dict:
+    return {"events": load_feedback_events(limit=min(limit, 200))}
 
 
 @app.get("/v1/llm/backends", response_model=BackendsResponse)
@@ -145,6 +169,9 @@ async def generate_text(req: GenerateRequest) -> GenerateResponse:
 
 @app.post("/v1/chat", response_model=ChatResponse)  # M3: docs/m3_agent.md §6
 async def chat(req: ChatRequest) -> ChatResponse:
+    if not allow_request(req.session_id):
+        raise HTTPException(status_code=429, detail="rate limit exceeded")
+    inc_chat_request()
     try:
         result = await run_agentic_rag(req.session_id, req.query)
     except Exception as exc:
@@ -210,6 +237,20 @@ async def feedback(req: FeedbackRequest) -> dict:
 
 @app.post("/v1/ingest")
 async def ingest_trigger(req: IngestRequest) -> dict:
+    if req.mode == "k8s":
+        ing = load_profile().get("ingest", {}).get("cronJob", {})
+        ns = ing.get("namespace", "industrial-ops")
+        cj = ing.get("cronJobName", "ior-ingest")
+        try:
+            result = await asyncio.to_thread(
+                trigger_ingest_cronjob,
+                namespace=ns,
+                cronjob_name=cj,
+            )
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        return result
+
     input_dir = Path(req.input)
     if not input_dir.is_absolute():
         input_dir = ROOT / input_dir
@@ -228,6 +269,13 @@ async def ingest_trigger(req: IngestRequest) -> dict:
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"ingest failed: {exc}") from exc
     return {"ok": True, **result}
+
+
+@app.post("/v1/feedback/export-golden")
+async def feedback_export_golden(min_rating: int = -1) -> dict:
+    out = ROOT / "data" / "eval" / "golden_candidates.jsonl"
+    n = export_golden_candidates(out, min_rating=min_rating)
+    return {"ok": True, "count": n, "path": str(out)}
 
 
 def run() -> None:

@@ -21,7 +21,7 @@
 | 端到端 RAG 管道 | `apps/agent/pipeline.py` | **done** |
 | 准确率/降幻觉 | Agent self-check + RAGAS | **done**（真 RAGAS 须 Gateway+vLLM） |
 | CoT / few-shot | `apps/generation/prompts/` | **done** |
-| RAGAS / TruLens | `pipelines/evaluation/` | **done**（CI dry-run） |
+| RAGAS / TruLens | `run_ragas.py` / `trulens_eval.py` | **done**（CI dry-run；TruLens 真 SDK 未接） |
 | 多轮对话 | `session_store` + rewrite | **done** |
 | 高可用 99.9% | PDB、探针、`docs/architecture.md` SLO | 文档+配置 |
 | Agentic RAG | `apps/agent/tools/` | **done** |

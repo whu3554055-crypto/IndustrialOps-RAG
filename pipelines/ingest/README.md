@@ -22,5 +22,6 @@ python scripts/verify_m1.py --write-evolution
 
 ## 扩展
 
-- `deepdoc/` — PDF/表格（占位）
-- `multimodal/` — OCR POC（占位）
+- `deepdoc/` — PDF + 表格行增强
+- `multimodal/` — Markdown 图片 alt
+- `scripts/batch_ingest.py` — 分片大批量

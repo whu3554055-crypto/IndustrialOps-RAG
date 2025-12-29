@@ -11,5 +11,9 @@
 | 2026-06-02 | **M6 15min 问答** | - | - | **跳过** — 6GB 本机 vLLM 502/首条超时；脚手架已验，live 问答留 M7/大显存 |
 | 2026-06-02 | **M7 脚手架** | - | - | `verify_m7` PASS；ingest/live/RAGAS 执行本机未跑（6GB） |
 | 2026-06-02 | **post-M7 代码落地** | 模板 56 题 | golden.example 12 | 会话/检索日志、ingest API、增量、PDF、m2 golden；见 post-m7-landing.md |
+| 2026-06-02 | **本机 ingest 五篇** | 待测 | - | 5 docs / 7 chunks；verify_m1 用户已执行 |
+| 2026-06-02 | **post-M7 完善** | - | - | Helm ingest CronJob、限流、MinIO 健康、batch/fill golden、TruLens stub |
+
+| 2026-06-02 | M1 ingest+索引 | 10/10 | - | Vec 10/10 BM25 10/10 Top5 PASS |
 
 <!-- 每完成一里程碑追加一行 -->

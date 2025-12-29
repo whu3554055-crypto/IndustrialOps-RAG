@@ -31,7 +31,7 @@ apps/gateway/main.py            ← POST /v1/chat
 apps/generation/prompts/system_zh.txt  ← 中文系统 prompt
 scripts/verify_m3.py            ← M3 验收（你本机跑）
 tests/test_agent_m3.py          ← 单元测试（无需 vLLM）
-apps/web/app.py                 ← Gradio UI 占位（TODO）
+apps/web/demo_ui.py             ← Gradio 业务演示（M7）
 deploy/profiles/dev-single-node.yaml  ← agent.* 配置
 ```
 
@@ -175,7 +175,7 @@ flowchart LR
 | `session_id` | 同 ID 共享多轮 history（内存，重启 Gateway 丢失） |
 | `citations` | 来自 rerank 后的 hits，非 LLM 编造 |
 | `refused` | true 表示拒答路径 |
-| `retrieval_log_id` | 占位 UUID，M6+ 写 PostgreSQL 日志 |
+| `retrieval_log_id` | UUID；写入 `retrieval_logs`（file/PostgreSQL） |
 
 **Windows 测 API**：用 `curl.exe` + UTF-8 JSON 文件，勿用 `Invoke-RestMethod`（易乱码）。见 COLLABORATION §3.7.2。
 
@@ -242,9 +242,9 @@ python scripts/verify_m3.py --case 3 --write-report
 
 ---
 
-## 10. Web UI（占位）
+## 10. Web UI
 
-`apps/web/app.py` 当前为 scaffold，计划 Gradio 中文界面调 `/v1/chat`。M3 验收以 API + `verify_m3.py` 为准。
+`apps/web/demo_ui.py` — Gradio 调 `/v1/chat` 与 `/v1/feedback`。M3 验收仍以 API + `verify_m3.py` 为准。
 
 ---
 

@@ -93,6 +93,16 @@
       },
       "title": "RAGAS 指标说明",
       "type": "text"
+    },
+    {
+      "gridPos": { "h": 4, "w": 12, "x": 0, "y": 16 },
+      "id": 5,
+      "options": {
+        "content": "检索审计：`reports/retrieval_logs.jsonl` 或 `GET /v1/admin/retrieval-logs`；Prometheus：`ior_retrieval_logs_total`（Gateway `/metrics`）。",
+        "mode": "markdown"
+      },
+      "title": "Retrieval Logs",
+      "type": "text"
     }
   ],
   "schemaVersion": 39,

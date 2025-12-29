@@ -217,6 +217,6 @@ python pipelines\ingest\run_ingest.py --input data/raw --max-docs 3 --batch-size
 | | M6 | M7 |
 |--|----|-----|
 | golden | `golden.jsonl.example` 通用 | `golden_m7.jsonl.example` 对齐语料 |
-| 反馈 | API 占位 | file/PostgreSQL + 导出候选 |
+| 反馈 | file/PostgreSQL + `/v1/feedback/export-golden` | 导出候选 golden |
 | 演示 | 15min README | Gradio + 业务话术 |
 | CI | `verify_m6` + dry-run | + `verify_m7` + golden_m7 `--limit 3` |

@@ -18,6 +18,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from apps.config import ROOT  # noqa: E402
+from apps.eval_paths import resolve_eval_jsonl  # noqa: E402
 from apps.retrieval.langchain.hybrid_chain import retrieve_context  # noqa: E402
 from apps.retrieval.llamaindex.router_engine import query_router  # noqa: E402
 
@@ -142,7 +143,13 @@ def main() -> None:
     parser.add_argument("--write-evolution", action="store_true")
     args = parser.parse_args()
 
-    golden_path = ROOT / args.golden
+    try:
+        golden_path = resolve_eval_jsonl(args.golden)
+    except FileNotFoundError as exc:
+        print(exc, file=sys.stderr)
+        sys.exit(1)
+    if golden_path.name.endswith(".example"):
+        print(f"使用模板: {golden_path}")
     results = asyncio.run(run_all(golden_path))
     print_report(results)
     write_outputs(results, ROOT / args.output, args.write_evolution)

@@ -25,7 +25,7 @@
 | `data/eval/m2_golden.jsonl` | M2 Recall@5（~40 条，可扩至 80） | 模板见 `m2_golden.jsonl.example` |
 
 - Recall@5 / P95：本地跑 `python scripts/verify_m2.py --write-evolution`，报告见 `reports/m2_verify.json`。
-- RAGAS faithfulness：待构建 `golden.jsonl` 后跑 COLLABORATION §3.8。
+- RAGAS faithfulness：模板 `golden.jsonl.example`（`build_eval_golden.py`）；live 见 COLLABORATION §3.10。
 
 ---
 

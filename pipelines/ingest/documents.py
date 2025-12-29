@@ -35,6 +35,13 @@ def load_documents(input_dir: Path) -> list[RawDocument]:
             text = path.read_text(encoding="utf-8", errors="replace").strip()
         if not text:
             continue
+        from pipelines.ingest.deepdoc.table_parser import append_table_rows_as_lines
+        from pipelines.ingest.multimodal.caption_stub import extract_image_captions
+
+        text = append_table_rows_as_lines(text)
+        caps = extract_image_captions(text)
+        if caps:
+            text = text + "\n\n（图示说明）\n" + "\n".join(caps)
         rel = path.relative_to(input_dir).as_posix()
         doc_id = Path(rel).with_suffix("").as_posix()
         docs.append(

@@ -173,7 +173,7 @@ def append_evolution(results: list[CaseResult]) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="M1 retrieval acceptance — vector + BM25 Top5 × 10 questions",
-        epilog="示例: python scripts/verify_m1.py --write-evolution\n"
+        epilog="示例: python scripts/verify_m1.py --write-report --write-evolution\n"
         "文档: docs/m1_ingest.md §7",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -184,6 +184,11 @@ def main() -> None:
         help="JSON 报告路径",
     )
     parser.add_argument(
+        "--write-report",
+        action="store_true",
+        help="写入 JSON 报告（默认路径见 --output）",
+    )
+    parser.add_argument(
         "--write-evolution",
         action="store_true",
         help="追加一行到 docs/evolution.md",
@@ -192,9 +197,15 @@ def main() -> None:
 
     results = run_cases()
     print_report(results)
-    write_json(results, ROOT / args.output)
+    out = ROOT / args.output
+    if args.write_report or args.write_evolution:
+        write_json(results, out)
+    elif not out.is_file():
+        write_json(results, out)
     if args.write_evolution:
         append_evolution(results)
+    if args.write_report:
+        print(f"Report: {out}")
 
     vector_pass = sum(1 for r in results if r.vector_hit)
     bm25_pass = sum(1 for r in results if r.bm25_hit)

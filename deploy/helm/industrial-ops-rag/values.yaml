@@ -84,6 +84,21 @@ monitoring:
 ingest:
   cronJob:
     enabled: false
+    schedule: "0 2 * * *"
+    backoffLimit: 2
+    inputPath: data/raw
+    batchSize: 8
+    maxDocs: null
+    recreate: true
+    image:
+      repository: industrial-ops-rag/gateway
+      tag: "0.1.0"
+    resources:
+      limits:
+        memory: 4Gi
+      requests:
+        memory: 1Gi
+        cpu: 500m
 
 evaluation:
   ragasCronJob:

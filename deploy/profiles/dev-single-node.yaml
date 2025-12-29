@@ -122,6 +122,15 @@ evaluation:
     judge_base_url: http://localhost:8000/v1  # RAGAS judge；默认同 vLLM OpenAI API
     judge_model: Qwen/Qwen2.5-7B-Instruct-AWQ
 
+gateway:
+  rate_limit_qps: 30
+  rate_limit_burst: 60
+
+ingest:
+  cronJob:
+    namespace: industrial-ops
+    cronJobName: ior-ingest
+
 persistence:
   session_backend: file  # file | postgresql
   session_file: reports/chat_sessions.json

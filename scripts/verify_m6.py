@@ -107,6 +107,7 @@ def _case_grafana_dashboard(report: dict) -> bool:
 def _case_helm_templates(report: dict) -> bool:
     names = (
         "ragas-cronjob.yaml",
+        "ingest-cronjob.yaml",
         "prometheus-deployment.yaml",
         "grafana-deployment.yaml",
     )

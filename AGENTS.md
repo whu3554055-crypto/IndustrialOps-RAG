@@ -21,4 +21,4 @@
 
 ## 当前状态
 
-M0–M7 代码已齐（见 `docs/post-m7-landing.md`）。**验收** `verify_m0`…`verify_m7` + pytest。本机/大显存才做：ingest 实测、vLLM live、真 RAGAS、TRT 压测、K8s 全绿。
+M0–M7 + post-M7 完善已齐（`docs/post-m7-landing.md`）。验收 `verify_m0`…`verify_m7` + pytest。仅运行时：vLLM live、真 RAGAS、TRT 压测、K8s 镜像全绿。

@@ -27,7 +27,7 @@ pipelines/ingest/run_ingest.py     ← CLI 入口
 pipelines/ingest/documents.py      ← 加载 data/raw 下 md/txt
 pipelines/ingest/chunker.py        ← 中文友好切块
 pipelines/ingest/indexer.py        ← Embedder + Milvus + OpenSearch
-pipelines/ingest/deepdoc/          ← PDF/表格解析（占位，后续扩展）
+pipelines/ingest/deepdoc/          ← PDF（pypdf）+ 表格行增强
 scripts/verify_m1.py               ← 10 题 Top5 验收
 data/raw/                          ← 原始语料（示例 3 篇 MD）
 deploy/compose/docker-compose.yml  ← Milvus + OpenSearch 等中间件
@@ -45,7 +45,7 @@ flowchart TD
     Chunk --> Emb[Embedder bge-m3 CPU<br/>batch encode]
     Emb --> Rec{--recreate?}
     Rec -->|默认 true| Drop[drop + 重建<br/>Milvus collection<br/>OpenSearch index]
-    Rec -->|false| Skip[追加模式未实现]
+    Rec -->|false| Upsert[按 doc_id 删除旧 chunk 后写入]
     Drop --> MV[milvus.insert<br/>向量 + metadata]
     Drop --> OS[opensearch.insert<br/>全文 BM25]
     MV --> Done([done: N chunks indexed])
@@ -210,8 +210,8 @@ flowchart LR
 
 | 模块 | 路径 | 计划 |
 |------|------|------|
-| DeepDoc | `pipelines/ingest/deepdoc/` | PDF 版面、故障码表按行切（RAGFlow 思路） |
-| 多模态 | `pipelines/ingest/multimodal/` | 图片页 OCR POC |
+| DeepDoc | `pipelines/ingest/deepdoc/` | 轻量 PDF + Markdown 表行增强；复杂版面待扩展 |
+| 多模态 | `pipelines/ingest/multimodal/` | Markdown 图片 alt 并入正文；OCR 待扩展 |
 
 当前 M1 验收 **仅 md/txt** 路径即可 PASS。
 

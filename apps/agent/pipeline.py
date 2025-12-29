@@ -46,10 +46,6 @@ def _build_messages(
     *,
     include_history: bool,
 ) -> list[dict[str, str]]:
-    """
-    RAG 生成阶段：默认仅 system + 检索上下文 + 当前问题。
-    多轮指代由 rewrite_query 使用 history 处理，不把长对话塞进生成 prompt。
-    """
     messages: list[dict[str, str]] = [{"role": "system", "content": system}]
     if include_history:
         messages.extend(history)
@@ -105,12 +101,6 @@ async def run_agentic_rag(
     *,
     history: list[dict] | None = None,
 ) -> PipelineResult:
-    """
-    1. query rewrite（多轮指代）
-    2. hybrid retrieve + rerank
-    3. generate (vLLM / TRT / API)
-    4. self-check → 拒答或二次检索
-    """
     cfg = _agent_config()
     max_turns = int(cfg.get("max_history_turns", 3))
     self_check_enabled = bool(cfg.get("self_check_enabled", True))
@@ -122,25 +112,28 @@ async def run_agentic_rag(
     search_query = await rewrite_query(query, session_history)
     hits = await _retrieve(search_query, cfg)
 
-    def _log(refused: bool) -> None:
+    def _log(h: list[dict], refused: bool) -> None:
         write_retrieval_log(
             log_id=log_id,
             session_id=session_id,
             query=query,
             search_query=search_query,
-            hits=hits,
+            hits=h,
             refused=refused,
         )
 
-    if refuse_on_low_confidence and not check_retrieval_confidence(hits):
+    def _refuse(h: list[dict]) -> PipelineResult:
         append_turn(session_id, query, REFUSE_MESSAGE)
-        _log(refused=True)
+        _log(h, refused=True)
         return PipelineResult(
             answer=REFUSE_MESSAGE,
-            citations=[],
+            citations=hits_to_citations(h),
             retrieval_log_id=log_id,
             refused=True,
         )
+
+    if refuse_on_low_confidence and not check_retrieval_confidence(hits):
+        return _refuse([])
 
     answer = await _generate_answer(query, session_history, hits, cfg)
     check_context = format_context(hits, max_chars_per_chunk=_max_chars_per_chunk(cfg))
@@ -148,14 +141,10 @@ async def run_agentic_rag(
     if self_check_enabled:
         supported = await check_answer_supported(query, answer, check_context)
         if not supported:
-            expanded_query = await rewrite_query(
-                query, session_history, expand=True
-            )
+            expanded_query = await rewrite_query(query, session_history, expand=True)
             hits_retry = await _retrieve(expanded_query, cfg)
             if hits_retry and check_retrieval_confidence(hits_retry):
-                answer_retry = await _generate_answer(
-                    query, session_history, hits_retry, cfg
-                )
+                answer_retry = await _generate_answer(query, session_history, hits_retry, cfg)
                 retry_context = format_context(
                     hits_retry, max_chars_per_chunk=_max_chars_per_chunk(cfg)
                 )
@@ -163,24 +152,12 @@ async def run_agentic_rag(
                     hits = hits_retry
                     answer = answer_retry
                 else:
-                    append_turn(session_id, query, REFUSE_MESSAGE)
-                    return PipelineResult(
-                        answer=REFUSE_MESSAGE,
-                        citations=hits_to_citations(hits_retry),
-                        retrieval_log_id=log_id,
-                        refused=True,
-                    )
+                    return _refuse(hits_retry)
             else:
-                append_turn(session_id, query, REFUSE_MESSAGE)
-                return PipelineResult(
-                    answer=REFUSE_MESSAGE,
-                    citations=hits_to_citations(hits),
-                    retrieval_log_id=log_id,
-                    refused=True,
-                )
+                return _refuse(hits)
 
     append_turn(session_id, query, answer)
-    _log(refused=False)
+    _log(hits, refused=False)
     return PipelineResult(
         answer=answer,
         citations=hits_to_citations(hits),

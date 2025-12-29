@@ -25,6 +25,36 @@ def log_file_path() -> Path:
     return path if path.is_absolute() else ROOT / path
 
 
+def load_recent_logs(limit: int = 50) -> list[dict[str, Any]]:
+    if log_backend() == "postgresql":
+        try:
+            import psycopg2
+            from psycopg2.extras import RealDictCursor
+
+            url = get_settings().database_url.replace("postgresql+asyncpg://", "postgresql://")
+            conn = psycopg2.connect(url)
+            try:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute(
+                        "SELECT log_id::text, session_id, query, hit_count, refused, created_at "
+                        "FROM retrieval_logs ORDER BY created_at DESC LIMIT %s",
+                        (limit,),
+                    )
+                    return [dict(r) for r in cur.fetchall()]
+            finally:
+                conn.close()
+        except Exception:
+            pass
+    rows: list[dict[str, Any]] = []
+    path = log_file_path()
+    if not path.is_file():
+        return rows
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            rows.append(json.loads(line))
+    return rows[-limit:]
+
+
 def write_retrieval_log(
     *,
     log_id: str,
@@ -45,15 +75,19 @@ def write_retrieval_log(
         "refused": refused,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
+    from apps.metrics import inc_retrieval_log
+
     if log_backend() == "postgresql":
         try:
             _write_postgres(row)
             row["stored"] = "postgresql"
+            inc_retrieval_log()
             return row
         except Exception:
             pass
     _append_file(row)
     row["stored"] = "file"
+    inc_retrieval_log()
     return row
 
 
