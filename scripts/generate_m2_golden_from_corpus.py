@@ -29,9 +29,10 @@ def _sections(md_path: Path) -> list[str]:
     text = md_path.read_text(encoding="utf-8")
     titles = []
     for line in text.splitlines():
-        m = re.match(r"^##\s+(.+)", line.strip())
-        if m:
-            titles.append(m.group(1).strip())
+        for pat in (r"^##\s+(.+)", r"^###\s+(.+)"):
+            m = re.match(pat, line.strip())
+            if m:
+                titles.append(m.group(1).strip())
     return titles
 
 
@@ -48,7 +49,12 @@ def main() -> None:
             continue
         source = f"samples/{md.name}"
         for title in _sections(md):
-            for suffix in ("主要内容是什么？", "现场如何处置？"):
+            for suffix in (
+                "主要内容是什么？",
+                "现场如何处置？",
+                "操作要点有哪些？",
+                "维修时注意什么？",
+            ):
                 q = f"{title}——{suffix}"
                 if q in seen_q:
                     continue
