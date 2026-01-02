@@ -1,0 +1,90 @@
+entities:
+- id: device:P-101
+  label: 离心泵 P-101
+- id: device:R-201
+  label: 反应釜 R-201
+- id: device:SA-01
+  label: 螺杆空压机 SA-01
+- id: device:E-301
+  label: 换热器 E-301
+- id: device:CV-110
+  label: 皮带输送机 CV-110
+- id: fault:E01
+  label: 故障码 E01 出口压力低
+- id: alarm:ALM-101
+  label: 告警 ALM-101 排气温度高
+- id: alarm:B201
+  label: 告警 B201 皮带跑偏
+- id: fault:ALM-2024
+  label: ALM-2024
+- id: fault:ALM-101
+  label: ALM-101
+- id: fault:ALM-102
+  label: ALM-102
+- id: fault:ALM-103
+  label: ALM-103
+- id: device:CV-2024
+  label: CV-2024
+- id: fault:B201
+  label: B201
+- id: fault:B202
+  label: B202
+- id: fault:E02
+  label: E02
+- id: fault:E03
+  label: E03
+- id: fault:F201-02
+  label: F201-02
+edges:
+- from: fault:E01
+  to: device:P-101
+  rel: affects
+  doc_id: samples/pump_p101_manual.md
+- from: alarm:ALM-101
+  to: device:SA-01
+  rel: affects
+  doc_id: samples/compressor_sa01_fault_codes.md
+- from: alarm:B201
+  to: device:CV-110
+  rel: affects
+  doc_id: samples/conveyor_cv110_sop.md
+- from: device:R-201
+  to: device:E-301
+  rel: same_plant_area
+  doc_id: samples/reactor_r201_sop.md
+- from: fault:ALM-2024
+  to: device:SA-01
+  rel: affects
+  doc_id: samples/compressor_sa01_fault_codes.md
+- from: fault:ALM-101
+  to: device:SA-01
+  rel: affects
+  doc_id: samples/compressor_sa01_fault_codes.md
+- from: fault:ALM-102
+  to: device:SA-01
+  rel: affects
+  doc_id: samples/compressor_sa01_fault_codes.md
+- from: fault:ALM-103
+  to: device:SA-01
+  rel: affects
+  doc_id: samples/compressor_sa01_fault_codes.md
+- from: fault:B201
+  to: device:CV-110
+  rel: affects
+  doc_id: samples/conveyor_cv110_sop.md
+- from: fault:B202
+  to: device:CV-110
+  rel: affects
+  doc_id: samples/conveyor_cv110_sop.md
+- from: fault:E02
+  to: device:P-101
+  rel: affects
+  doc_id: samples/pump_p101_manual.md
+- from: fault:E03
+  to: device:P-101
+  rel: affects
+  doc_id: samples/pump_p101_manual.md
+- from: fault:F201-02
+  to: device:R-201
+  rel: affects
+  doc_id: samples/reactor_r201_sop.md
