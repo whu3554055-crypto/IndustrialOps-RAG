@@ -115,7 +115,12 @@ finetune:
   learning_rate: 2.0e-4
   num_train_epochs: 1
 
+graph:
+  relations_path: data/graph/relations.yaml
+
 evaluation:
+  trulens:
+    judge_model: Qwen/Qwen2.5-7B-Instruct-AWQ
   ragas:
     golden_path: data/eval/golden.jsonl
     gateway_url: http://localhost:8080
