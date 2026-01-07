@@ -3,8 +3,8 @@
 import asyncio
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import PlainTextResponse
+from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.responses import PlainTextResponse, Response
 from pydantic import BaseModel, Field
 
 from apps.agent.pipeline import run_agentic_rag
@@ -269,6 +269,42 @@ async def ingest_trigger(req: IngestRequest) -> dict:
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"ingest failed: {exc}") from exc
     return {"ok": True, **result}
+
+
+@app.post("/v1/storage/upload")
+async def storage_upload(key: str, file: UploadFile = File(...)) -> dict:
+    try:
+        from apps.storage.minio_store import upload_bytes
+
+        data = await file.read()
+        return upload_bytes(key, data, content_type=file.content_type or "application/octet-stream")
+    except ImportError as exc:
+        raise HTTPException(status_code=501, detail="pip install minio or .[storage]") from exc
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.get("/v1/storage/download/{key:path}")
+async def storage_download(key: str) -> Response:
+    try:
+        from apps.storage.minio_store import download_bytes
+
+        data = download_bytes(key)
+        return Response(content=data, media_type="application/octet-stream")
+    except ImportError as exc:
+        raise HTTPException(status_code=501, detail="pip install minio or .[storage]") from exc
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.get("/v1/storage/list")
+async def storage_list(prefix: str = "", limit: int = 50) -> dict:
+    try:
+        from apps.storage.minio_store import list_objects
+
+        return {"objects": list_objects(prefix=prefix, limit=limit)}
+    except ImportError as exc:
+        raise HTTPException(status_code=501, detail="pip install minio or .[storage]") from exc
 
 
 @app.post("/v1/feedback/export-golden")
