@@ -1,0 +1,8 @@
+# Prometheus 抓取 Gateway /metrics（Compose 或 K8s 外挂 scrape）
+scrape_configs:
+  - job_name: ior-gateway
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["host.docker.internal:8080"]
+        labels:
+          service: gateway

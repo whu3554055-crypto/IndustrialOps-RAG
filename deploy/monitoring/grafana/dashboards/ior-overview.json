@@ -103,6 +103,24 @@
       },
       "title": "Retrieval Logs",
       "type": "text"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 20 },
+      "id": 6,
+      "targets": [{ "expr": "ior_retrieval_logs_total", "refId": "A" }],
+      "title": "Retrieval Logs Total",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 20 },
+      "id": 7,
+      "targets": [{ "expr": "ior_chat_requests_total", "refId": "A" }],
+      "title": "Chat Requests Total",
+      "type": "stat"
     }
   ],
   "schemaVersion": 39,
