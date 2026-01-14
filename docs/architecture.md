@@ -114,7 +114,7 @@ flowchart TB
 - liveness / readiness 探针
 - PDB：`minAvailable: 1`（推理服务）
 - NetworkPolicy：仅 Gateway 访问 Milvus/OpenSearch
-- 限流：Gateway 层 QPS（Redis 令牌桶占位）
+- 限流：Gateway 层 QPS（`apps/rate_limit.py` + Redis）
 - SLO 文档化：单机为 dev SLO；生产 overlay 目标 99.9%
 
 ## 7. 配置入口

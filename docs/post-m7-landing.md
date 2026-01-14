@@ -1,6 +1,7 @@
 # M7 之后落地状态
 
-> **仅运行时（GPU/大显存）**：真 RAGAS live、vLLM 15min、TRT 压测填表、K8s 镜像全绿。
+> **v0.2 代码**：[code-delivery-v0.2.md](./code-delivery-v0.2.md)  
+> **仅运行时（GPU/大显存）**：[next-version-requirements.md](./next-version-requirements.md)
 
 ## 已落地（代码 / 脚本 / 文档）
 

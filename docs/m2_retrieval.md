@@ -15,7 +15,7 @@
 | **M2** | 检索策略 | 向量、BM25、混合、Rerank 谁更好？LlamaIndex 各模式如何对比？ |
 | **M3** | Agent | 在 M2 最优链路上加改写、生成、拒答 |
 
-M2 **不调用 LLM**（除 LlamaIndex sub_question 等占位扩展）；验收看 **Recall@5** 与 **P95 延迟**。
+M2 **不调用 LLM**（`sub_question` 等可扩展 LLM）；验收看 **Recall@5** 与 **P95 延迟**。
 
 ---
 
@@ -123,7 +123,7 @@ flowchart TB
 | 框架 | M2 角色 |
 |------|---------|
 | **LangChain** | hybrid + RRF + rerank，M3 生产链 |
-| **LlamaIndex** | 七种 QueryEngine 占位实现，供对比与招聘对齐 |
+| **LlamaIndex** | 七种 QueryEngine；**graph** 已接 `relations.yaml` 1-hop 扩展 |
 
 ---
 

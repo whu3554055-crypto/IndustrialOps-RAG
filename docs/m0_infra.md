@@ -123,7 +123,7 @@ docker compose -f deploy/compose/docker-compose.yml ps
 | 服务 | 容器名 | 端口 | M1 需要 |
 |------|--------|------|---------|
 | PostgreSQL | ior-postgresql | 5432 | M6+ 会话持久化 |
-| Redis | ior-redis | 6379 | Gateway 限流占位 |
+| Redis | ior-redis | 6379 | Gateway QPS 限流（`apps/rate_limit.py`） |
 | MinIO | ior-minio | 9000/9001 | Milvus 后端 |
 | etcd | ior-etcd | — | Milvus 元数据 |
 | **Milvus** | ior-milvus | **19530** | **M1 必须** |

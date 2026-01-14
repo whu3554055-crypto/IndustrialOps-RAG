@@ -111,6 +111,8 @@
 | [m5_finetune.md](./m5_finetune.md) | **M5** QLoRA、SFT 数据、RAG/SFT 对比（学习 hub） |
 | [m6_eval.md](./m6_eval.md) | **M6** RAGAS CI、Grafana、Helm 一键（学习 hub） |
 | [m7_demo.md](./m7_demo.md) | **M7** 脱敏语料、反馈闭环、业务 demo（学习 hub） |
+| [code-delivery-v0.2.md](./code-delivery-v0.2.md) | **v0.2** 代码交付（无 GPU） |
+| [next-version-requirements.md](./next-version-requirements.md) | **下一版** 仅 GPU/大显存运行时 |
 | [m5_online_train.md](./m5_online_train.md) | **M5** 线上 24GB 完整 epoch（AutoDL 4090 等） |
 | [milestones/README.md](./milestones/README.md) | 各里程碑文档层级约定 |
 | [scaling-data.md](./scaling-data.md) | 2k→100k 数据扩展 |
