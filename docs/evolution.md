@@ -15,5 +15,6 @@
 | 2026-06-02 | **post-M7 完善** | - | - | Helm ingest CronJob、限流、MinIO 健康、batch/fill golden、TruLens stub |
 
 | 2026-06-02 | M1 ingest+索引 | 10/10 | - | Vec 10/10 BM25 10/10 Top5 PASS |
+| 2026-06-02 | **v0.2 代码交付** | 模板 80 题 | - | 图谱/OCR/MinIO/Helm；`verify_code_complete` PASS |
 
 <!-- 每完成一里程碑追加一行 -->

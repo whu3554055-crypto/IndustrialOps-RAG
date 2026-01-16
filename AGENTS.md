@@ -21,4 +21,4 @@
 
 ## 当前状态
 
-M0–M7 + post-M7 完善已齐（`docs/post-m7-landing.md`）。验收 `verify_m0`…`verify_m7` + pytest。仅运行时：vLLM live、真 RAGAS、TRT 压测、K8s 镜像全绿。
+M0–M7 + v0.2 代码已齐（`docs/code-delivery-v0.2.md`）。仅 GPU 运行时见 `docs/next-version-requirements.md`。验收 `verify_m0`…`verify_m7` + `verify_code_complete.py`。
