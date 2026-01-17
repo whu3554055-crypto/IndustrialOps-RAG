@@ -63,7 +63,7 @@ flowchart LR
 
 ```bash
 kubectl -n industrial-ops port-forward svc/ior-grafana 3000:3000
-# 浏览器 http://localhost:3000  admin / ior_dev（values 默认，生产请改）
+# 浏览器 http://localhost:3000  admin / <your_grafana_password>（values 默认，生产请改）
 ```
 
 ---

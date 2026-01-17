@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     ior_profile: str = "dev-single-node"
-    database_url: str = "postgresql+asyncpg://ior:ior_dev@localhost:5432/industrial_ops"
+    database_url: str = "postgresql+asyncpg://ior:<your_postgres_password>@localhost:5432/industrial_ops"
     redis_url: str = "redis://localhost:6379/0"
     milvus_host: str = "localhost"
     milvus_port: int = 19530
@@ -33,8 +33,8 @@ class Settings(BaseSettings):
     gateway_host: str = "0.0.0.0"
     gateway_port: int = 8080
     minio_endpoint: str = "localhost:9000"
-    minio_access_key: str = "minio"
-    minio_secret_key: str = "minio_dev"
+    minio_access_key: str = "<your_minio_access_key>"
+    minio_secret_key: str = "<your_minio_secret_key>"
     minio_bucket: str = "ior-models"
 
 

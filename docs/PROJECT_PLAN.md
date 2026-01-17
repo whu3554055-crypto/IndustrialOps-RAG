@@ -12,7 +12,7 @@
 |----|------|
 | **名称** | IndustrialOps-RAG — 工业设备运维知识库智能问答系统 |
 | **场景** | 设备手册、故障码、SOP、维修案例；中文优先 |
-| **目标** | 工业标准、可交付、可演示；覆盖「大模型 RAG 工程师」招聘全文 |
+| **目标** | 工业标准、可交付、可演示；覆盖大模型 RAG 工程师技术栈全文 |
 | **原则** | **架构不因本机硬件而删减**；仅通过 `profiles` 调参、分时、互斥占 GPU |
 | **硬件参考** | RTX 3060 6GB / 16GB RAM / Ryzen 7 5800H；WSL2 Ubuntu 22.04 推荐 |
 | **学习模式** | 突击高投入；质量与技术含量优先；时间不设硬上限 |
@@ -64,7 +64,7 @@
 
 ---
 
-## 5. 模型与推理（招聘对齐）
+## 5. 模型与推理（技术栈对齐）
 
 | 用途 | 默认模型 | 备注 |
 |------|----------|------|
@@ -98,7 +98,7 @@
 | 文档 | 说明 |
 |------|------|
 | [architecture.md](./architecture.md) | 架构与时序 |
-| [job-requirements-mapping.md](./job-requirements-mapping.md) | 岗位要求逐条映射 |
+| [job-requirements-mapping.md](./job-requirements-mapping.md) | 技术栈逐条映射 |
 | [decisions.md](./decisions.md) | ADR 决策记录 |
 | [m0_infra.md](./m0_infra.md) | **M0** 基础设施、Profile、Compose、K8s/Helm（学习 hub） |
 | [m1_ingest.md](./m1_ingest.md) | **M1** 语料 ingest、Milvus+OpenSearch、验收（学习 hub） |

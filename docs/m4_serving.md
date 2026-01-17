@@ -59,7 +59,7 @@ flowchart TB
     subgraph 引擎["GPU 互斥 mutual_exclusive_gpu"]
         V["vLLM :8000<br/>日常开发"]
         T["TensorRT-LLM :8001<br/>编译引擎对比"]
-        A["云端 API<br/>招聘对照"]
+        A["云端 API<br/>技术对照"]
     end
 
     U --> CH & GEN & BE
@@ -320,4 +320,4 @@ M3 Agent 管道见 [m3_agent.md](./m3_agent.md)。
 
 - [architecture.md §4](./architecture.md) — 推理双引擎在总架构中的位置
 - [decisions.md](./decisions.md) — ADR（GPU 互斥、streaming 压测）
-- [job-requirements-mapping.md](./job-requirements-mapping.md) — 招聘项「高并发/KEDA/benchmark」
+- [job-requirements-mapping.md](./job-requirements-mapping.md) — 技术项「高并发/KEDA/benchmark」

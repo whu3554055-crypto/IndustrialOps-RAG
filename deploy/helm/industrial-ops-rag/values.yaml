@@ -78,7 +78,7 @@ monitoring:
       repository: grafana/grafana
       tag: "11.0.0"
     adminUser: admin
-    adminPassword: ior_dev  # 生产请改 Secret
+    adminPassword: <your_grafana_admin_password>  # 生产请改 Secret
     resources: {}
 
 ingest:

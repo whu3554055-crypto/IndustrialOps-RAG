@@ -1,8 +1,8 @@
-# 岗位要求 ↔ 项目模块映射
+# 技术栈 ↔ 项目模块映射
 
-> 招聘图「大模型 RAG 工程师」逐条覆盖，面试/demo 按表索骥。
+> 大模型 RAG 工程师技术栈逐条覆盖，学习/demo 按表索骥。
 
-| 招聘要求 | 仓库路径 | 状态 |
+| 技术要求 | 仓库路径 | 状态 |
 |----------|----------|------|
 | LangChain | `apps/agent/`, `apps/retrieval/langchain/` | **done** |
 | LlamaIndex | `apps/retrieval/llamaindex/` | **done** |
