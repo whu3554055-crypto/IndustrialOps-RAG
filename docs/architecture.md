@@ -76,6 +76,8 @@ flowchart TB
 
 ## 3. 双编排分工
 
+### 3.1 框架职责对比
+
 | 框架 | 职责 |
 |------|------|
 | **LangChain** | 生产主链路：Agent、Tools、LCEL、与 Gateway 集成 |
@@ -84,6 +86,135 @@ flowchart TB
 两路检索结果可在 Router 层融合或 A/B 评测（见 [m2_retrieval.md](./m2_retrieval.md)）。
 
 **M2 详解**（hybrid_rerank、RRF、verify_m2）：[m2_retrieval.md](./m2_retrieval.md)
+
+### 3.2 双框架协作架构图
+
+```mermaid
+flowchart TB
+    subgraph 接入层
+        UI[Web UI / API Client]
+        GW[FastAPI Gateway<br/>POST /v1/chat & /v1/search]
+    end
+    
+    subgraph Agent编排层
+        AG[Agentic Orchestrator<br/>run_agentic_rag]
+        RW[Query Rewrite<br/>多轮指代消解]
+        SC[Self Check<br/>答案忠实度检验]
+    end
+    
+    subgraph 检索路由层
+        ROUTER{检索模式路由}
+        LC_PATH[LangChain 路径<br/>生产主链路]
+        LI_PATH[LlamaIndex 路径<br/>研究/对比]
+    end
+    
+    subgraph LangChain检索
+        HYBRID[hybrid_retrieve<br/>RRF融合]
+        RERANK[BGE Reranker<br/>重排序]
+    end
+    
+    subgraph LlamaIndex引擎
+        VEC[Vector Engine]
+        KW[Keyword Engine]
+        SUM[Summary Engine]
+        TREE[Tree Engine]
+        GRAPH[Graph Engine<br/>图谱扩展]
+        SUBQ[SubQuestion Engine<br/>问题分解]
+        LI_ROUTER[Router Engine<br/>规则路由]
+    end
+    
+    subgraph 数据存储层
+        MILVUS[(Milvus<br/>向量索引)]
+        OPENSEARCH[(OpenSearch<br/>BM25全文)]
+        GRAPHDB[(Graph Store<br/>实体关系)]
+    end
+    
+    subgraph 推理服务层
+        LLM_ROUTER[LLM Router]
+        VLLM[vLLM<br/>Qwen2.5-7B-AWQ]
+        TRT[TensorRT-LLM<br/>可选]
+    end
+    
+    UI --> GW
+    GW --> AG
+    AG --> RW
+    RW --> ROUTER
+    ROUTER --> LC_PATH
+    ROUTER --> LI_PATH
+    
+    LC_PATH --> HYBRID
+    HYBRID --> RERANK
+    
+    LI_PATH --> VEC & KW & SUM & TREE & GRAPH & SUBQ & LI_ROUTER
+    
+    HYBRID --> MILVUS & OPENSEARCH
+    GRAPH --> GRAPHDB
+    RERANK --> LLM_ROUTER
+    VEC & KW --> MILVUS & OPENSEARCH
+    
+    LLM_ROUTER --> VLLM
+    LLM_ROUTER --> TRT
+    
+    AG --> SC
+    SC --> LLM_ROUTER
+```
+
+### 3.3 LangChain 生产链路详细流程
+
+M3 Agent 固定使用 `hybrid_rerank` 模式的完整流程：
+
+```mermaid
+flowchart TD
+    Start([POST /v1/chat]) --> LoadHist[加载会话历史<br/>max_history_turns=3]
+    LoadHist --> Rewrite[rewrite_query<br/>LLM调用#1: 多轮指代消解]
+    
+    Rewrite --> Retrieve[hybrid_search<br/>mode=hybrid_rerank]
+    
+    subgraph 混合检索过程
+        Retrieve --> Vec[Milvus向量检索<br/>top_k=20]
+        Retrieve --> BM25[OpenSearch BM25<br/>top_k=20]
+        Vec --> RRF[RRF融合<br/>rrf_k=60]
+        BM25 --> RRF
+        RRF --> Rel1[release_embedder<br/>释放内存]
+        Rel1 --> Rerank[BGE Reranker重排<br/>top_n=5]
+        Rerank --> Rel2[release_reranker<br/>释放内存]
+    end
+    
+    Rel2 --> ConfCheck{检索置信度检查<br/>score ≥ -2.0?}
+    
+    ConfCheck -->|否| RefuseLow[拒答<br/>refused=true]
+    ConfCheck -->|是| Generate[generate回答<br/>LLM调用#2]
+    
+    Generate --> SelfChk{self_check_enabled?}
+    SelfChk -->|否| ReturnOK[返回答案+citations]
+    SelfChk -->|是| AnswerCheck[check_answer_supported<br/>LLM调用#3: 忠实度检验]
+    
+    AnswerCheck -->|YES| ReturnOK
+    AnswerCheck -->|NO| Expand[rewrite expand=true<br/>LLM调用#4: 扩展改写]
+    
+    Expand --> Retry[二次hybrid_search]
+    Retry --> RetryConf{置信度OK?}
+    RetryConf -->|否| RefuseRetry[拒答+部分citations]
+    RetryConf -->|是| Gen2[generate重答<br/>LLM调用#5]
+    
+    Gen2 --> Check2[check_answer_supported<br/>LLM调用#6]
+    Check2 -->|YES| ReturnOK
+    Check2 -->|NO| RefuseFinal[最终拒答]
+    
+    ReturnOK --> SaveSession[append_turn保存会话]
+    RefuseLow & RefuseRetry & RefuseFinal --> SaveRefuse[记录拒答日志]
+    
+    SaveSession --> End([JSON Response])
+    SaveRefuse --> End
+```
+
+**关键特点：**
+- **正常路径**：3次LLM调用 + 1次CPU检索
+- **自检失败重试**：最多6次LLM调用
+- **内存优化**：embedder和reranker分时加载（16GB RAM限制）
+- **耗时**：本机单次chat约数分钟（含模型加载卸载）
+
+详见 [m3_agent.md](./m3_agent.md)。
 
 ## 4. 推理双引擎
 

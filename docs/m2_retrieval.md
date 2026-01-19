@@ -125,6 +125,101 @@ flowchart TB
 | **LangChain** | hybrid + RRF + rerank，M3 生产链 |
 | **LlamaIndex** | 七种 QueryEngine；**graph** 已接 `relations.yaml` 1-hop 扩展 |
 
+### 4.4 LlamaIndex 七种引擎架构
+
+```mermaid
+flowchart TB
+    subgraph Gateway分发
+        SEARCH[POST /v1/search<br/>mode参数]
+    end
+    
+    SEARCH --> ModeSelect{mode选择}
+    
+    ModeSelect -->|vector| VE[Vector Engine<br/>封装core.vector_search]
+    ModeSelect -->|bm25/keyword| KE[Keyword Engine<br/>封装core.bm25_search]
+    ModeSelect -->|hybrid| HE[Hybrid Engine<br/>RRF无rerank]
+    ModeSelect -->|hybrid_rerank| HRE[HybridRerank Engine<br/>RRF+BGE]
+    ModeSelect -->|summary| SE[Summary Engine<br/>章节级粗召回]
+    ModeSelect -->|tree| TE[Tree Engine<br/>目录树检索]
+    ModeSelect -->|graph| GE[Graph Engine<br/>图谱1-hop扩展]
+    ModeSelect -->|router| RE[Router Engine<br/>规则路由]
+    ModeSelect -->|sub_question| SQE[SubQuestion Engine<br/>问题分解]
+    
+    VE & KE & HE & HRE --> Core[core.py<br/>Milvus+OpenSearch]
+    GE --> GraphStore[relations.yaml<br/>实体关系图谱]
+    RE --> RuleCheck{故障码匹配?}
+    RuleCheck -->|是| KE
+    RuleCheck -->|否| HRE
+    
+    style Core fill:#ffe1e1
+    style GraphStore fill:#e1ffe1
+```
+
+**各引擎说明：**
+
+| Engine | 适用场景 | 实现位置 | 是否需LLM |
+|--------|---------|----------|----------|
+| **Vector** | 语义搜索、口语化问法 | `vector_engine.py` | 否 |
+| **Keyword** | 故障码、精确型号 | `keyword_engine.py` | 否 |
+| **Summary** | 文档章节级概览 | `summary_engine.py` | 否 |
+| **Tree** | 手册目录层级检索 | `tree_engine.py` | 否 |
+| **Graph** | 部件/故障关联扩展 | `graph_engine.py` | 否 |
+| **Router** | 自动选最佳模式 | `router_engine.py` | 否 |
+| **SubQuestion** | 复杂问题拆解 | `subquestion_engine.py` | **是** |
+
+> **注意**：除 `sub_question` 外，其他6种引擎均不调用LLM，符合M2“纯检索评测”原则。
+
+### 4.5 Router Engine 规则逻辑
+
+```mermaid
+flowchart TD
+    Query[用户query] --> PatternMatch{正则匹配故障码?}
+    
+    PatternMatch -->|匹配| KeywordSearch[query_keyword<br/>BM25检索]
+    PatternMatch -->|不匹配| HybridRerank[retrieve_context<br/>mode=hybrid_rerank]
+    
+    KeywordSearch --> CountCheck{命中数 ≥ 3?}
+    CountCheck -->|是| ReturnKW[返回Top5 keyword结果]
+    CountCheck -->|否| HybridRerank
+    
+    HybridRerank --> ReturnHR[返回hybrid_rerank结果]
+    
+    style PatternMatch fill:#ffffcc
+    style CountCheck fill:#ffffcc
+```
+
+**故障码正则模式：**
+```python
+FAULT_CODE_PATTERN = re.compile(
+    r"\b(?:ALM|E|F)[-_]?\d{2,4}\b|\b(?:故障码|报警码)\s*[A-Z0-9-]+\b",
+    re.IGNORECASE,
+)
+```
+
+示例匹配：`E01`, `ALM-101`, `故障码 E1024`
+
+### 4.6 Graph Engine 扩展流程
+
+```mermaid
+flowchart TD
+    Start[query_graph] --> Seed[hybrid_retrieve种子检索<br/>top_k=10]
+    Seed --> Catalog[读取全部chunks<br/>按doc_id分组]
+    
+    Catalog --> EntityMatch[match_entity_ids<br/>提取实体ID]
+    EntityMatch --> Expand[expand_doc_ids<br/>图谱1-hop扩展]
+    
+    Expand --> MergeDoc[合并图谱关联文档<br/>score=base*0.85]
+    Seed --> MergeSibling[合并同文档兄弟chunk<br/>score=hit*0.9]
+    
+    MergeDoc --> Rank[按score降序排列]
+    MergeSibling --> Rank
+    Rank --> TopK[返回Top K结果]
+```
+
+**扩展策略：**
+1. **图谱边关联**：通过 `relations.yaml` 找到相关文档
+2. **同文档兄弟**：同一文档的其他chunk作为补充
+
 ---
 
 ## 5. Gateway API：`POST /v1/search`
