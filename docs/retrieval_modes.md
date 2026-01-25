@@ -15,16 +15,18 @@
 | hybrid | 100% | - | 431.3 | m2_golden |
 | hybrid + rerank | 100% | - | 13939.8 | m2_golden |
 | llamaindex router | 100% | - | 11523.6 | m2_golden |
+| graph engine | | | | |
+| summary engine | | | | |
+| tree engine | | | | |
 
 **数据来源（两文件，用途不同）：**
 
 | 文件 | 用途 | 状态 |
 |------|------|------|
-| `data/eval/m2_golden.jsonl` | 检索 Recall@5 / P95（10 题，仅需 `question` + `doc_ids`） | 已有 |
-| `data/eval/golden.jsonl` | RAGAS faithfulness（需 `ground_truth`） | 模板见 `golden.jsonl.example`（`build_eval_golden.py`） |
-| `data/eval/m2_golden.jsonl` | M2 Recall@5（~40 条，可扩至 80） | 模板见 `m2_golden.jsonl.example` |
+| `data/eval/m2_golden.jsonl` | 检索 Recall@5 / P95（80 题，5 类 category） | 模板见 `m2_golden.jsonl.example` |
+| `data/eval/golden.jsonl` | RAGAS faithfulness（需 `ground_truth`） | 模板见 `golden.jsonl.example` |
 
-- Recall@5 / P95：本地跑 `python scripts/verify_m2.py --write-evolution`，报告见 `reports/m2_verify.json`。
+- Recall@5 / P95：本地跑 `python scripts/verify_m2.py --write-evolution`（5 模式）或 `--extended`（7 模式），报告见 `reports/m2_verify.json`。
 - RAGAS faithfulness：模板 `golden.jsonl.example`（`build_eval_golden.py`）；live 见 COLLABORATION §3.10。
 
 ---

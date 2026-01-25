@@ -29,7 +29,7 @@ apps/retrieval/langchain/hybrid_chain.py  ← retrieve_context 主入口
 apps/retrieval/rerank/bge_reranker.py     ← BGE CrossEncoder rerank
 apps/retrieval/llamaindex/*.py      ← Vector/Summary/Tree/Graph/Router/SubQuestion
 apps/gateway/main.py                ← POST /v1/search 多 mode 分发
-scripts/verify_m2.py                ← 10 题 golden × 5 模式对比
+scripts/verify_m2.py                ← golden × 5/7 模式对比（--extended）
 data/eval/m2_golden.jsonl           ← M2 评测集（question + doc_ids）
 tests/test_rrf.py                   ← RRF 单元测试
 deploy/profiles/dev-single-node.yaml  ← retrieval.* / rerank.*
@@ -261,11 +261,13 @@ flowchart TD
 
 ### 7.1 评测逻辑
 
-- 读 `data/eval/m2_golden.jsonl`（10 题）
+- 读 `data/eval/m2_golden.jsonl`（默认回退 `.example`，80 题 / 5 类 category）
 - 每题：某 mode 检索 Top5，`source_file` 是否含期望 `doc_ids` 之一 → 命中
-- **M2 通过线**：`hybrid_rerank` ≥ **8/10**
+- **M2 通过线**：`hybrid_rerank` Recall@5 ≥ **80%**（10 题时为 ≥8/10）
 
-### 7.2 对比的 5 种 mode
+### 7.2 对比的 mode
+
+**基础 5 模式**（默认）：
 
 | verify 名称 | 实现 |
 |-------------|------|
@@ -275,6 +277,14 @@ flowchart TD
 | hybrid_rerank | `mode=hybrid_rerank` |
 | router | `query_router` |
 
+**扩展 3 模式**（`--extended`，不含 sub_question）：
+
+| verify 名称 | 实现 |
+|-------------|------|
+| graph | `query_graph(top_k=5)` |
+| summary | `query_summary(top_k=5)` |
+| tree | `query_tree(top_k=5)` |
+
 ### 7.3 命令参数
 
 | 参数 | 默认 | 作用 |
@@ -282,10 +292,21 @@ flowchart TD
 | `--golden` | `data/eval/m2_golden.jsonl` | 评测集路径 |
 | `--output` | `reports/m2_verify.json` | JSON 报告 |
 | `--write-evolution` | off | 回填 `retrieval_modes.md` 指标表 |
+| `--extended` | off | 追加 graph / summary / tree |
+| `--mode` | 全部 | 只测单一模式（如 `--mode graph`） |
+| `--timeout` | 0 | 单题超时（秒），超时记 miss |
+| `--parallel` | off | 多模式并行评测 |
+| `--comparison-md` | off（`--extended` 时默认 `reports/m2_mode_comparison.md`） | Markdown 对比报告 |
 
 ```powershell
 # 前提：Compose 中间件 + ingest（M1）+ Gateway 可选（verify 直连 Python API）
 python scripts/verify_m2.py --write-evolution
+
+# 7 模式全量对比
+python scripts/verify_m2.py --extended --write-evolution
+
+# 单模式
+python scripts/verify_m2.py --mode graph --timeout 120
 ```
 
 **排障**：`WinError 10055` 端口耗尽 → 停 python 进程、sleep 30s 再跑（COLLABORATION §3.7.1）。
