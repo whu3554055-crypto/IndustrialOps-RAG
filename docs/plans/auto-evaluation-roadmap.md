@@ -3,27 +3,60 @@
 > **文档用途**：规划从当前半自动化流程升级为全自动化评测与优化系统的实施路径  
 > **创建日期**：2026-06-03  
 > **分支**：`feature/auto-evaluation-optimization`  
-> **状态**：规划阶段
+> **状态**：Phase 1 ✅ 已落地（2026-06-03）；Phase 2 Step 1 ✅ 已落地；Phase 2 Step 2–4 / Phase 3–4 ⬜ 待做  
+> **落地说明**：下文「规划代码块」为设计参考；**以仓库实际文件与 CLI 为准**（见 §2.6、§3.6）。
 
 ---
 
+## 0. 落地进度速查
+
+| 阶段 | 功能点 | 状态 | 交付物 |
+|------|--------|------|--------|
+| P1 | verify_m2 扩展 graph/summary/tree | ✅ | `scripts/verify_m2.py`（`--extended` / `--mode` / `--timeout` / `--parallel`） |
+| P1 | Golden 80 题 + 5 类 category | ✅ | `data/eval/m2_golden.jsonl.example`、`generate_m2_golden_from_corpus.py` |
+| P1 | 指标文档 + 对比 Markdown 报告 | ✅ | `docs/retrieval_modes.md`、`reports/m2_mode_comparison.md`（`--extended` 时生成） |
+| P1 | 单元测试 | ✅ | `tests/test_verify_m2.py` |
+| P1 | 模型加载缓存（Step 4） | ⬜ 未做 | 路线图建议项，非 P1 阻塞 |
+| P1 | sub_question 纳入 M2 | ❌ 刻意排除 | 需 LLM，归 M6 RAGAS |
+| P2 | 网格搜索调参 | ✅ | `scripts/auto_tune_params.py` |
+| P2 | 贝叶斯多参优化 | ⬜ | `scripts/bayesian_optimize.py` 待建 |
+| P2 | Git 自动分支/PR | ⬜ | 需人工 Review 后再做 |
+| P2 | CI 每周调参 | ⬜ | `.github/workflows/auto-tune.yml` 待建 |
+| P3–P4 | A/B 测试 / RL | ⬜ | 见 §4、§5 |
+
+**本地验收（需 Compose + M1 ingest）：**
+
+```powershell
+python scripts/verify_m2.py --write-evolution
+python scripts/verify_m2.py --extended --write-evolution
+python scripts/auto_tune_params.py --param rrf_k --values 50,60,70 --dry-run
+```
+
+---
+
+
 ## 1. 背景与目标
 
-### 1.1 当前状态
+### 1.1 当前状态（2026-06-03 更新）
 
 项目已实现**半自动化评测流程**：
-- ✅ 自动执行评测（`verify_m2.py`）
-- ✅ 自动生成报告（JSON + Markdown）
-- ✅ 自动更新文档占位符
-- ❌ 需人工决策、改代码、调参数、部署
+- ✅ 自动执行评测（`verify_m2.py`，默认 5 模式，`--extended` 为 7 模式）
+- ✅ 自动生成报告（JSON + 可选 Markdown 对比表）
+- ✅ 自动更新文档占位符（`--write-evolution` → `retrieval_modes.md`）
+- ✅ Phase 2 网格搜索调参骨架（`auto_tune_params.py`，改 profile 后跑 verify_m2）
+- ❌ 贝叶斯联合调参、Git 自动 PR、A/B 测试、RL — 尚未实现
+- ❌ 调参结果仍须人工 Review 后合并 profile
 
-**当前覆盖模式**：5种（vector, bm25, hybrid, hybrid_rerank, router）
+**verify_m2 覆盖模式**：
+- **默认 5 种**：vector, bm25, hybrid, hybrid_rerank, router
+- **`--extended` 追加 3 种**：graph, summary, tree（共 7 种）
+- **仍不纳入 M2**：sub_question（需 LLM，见 M6）
 
-**未覆盖模式**：4种LlamaIndex引擎（summary, tree, graph, sub_question）
+**M2 通过线（已实现）**：`hybrid_rerank` Recall@5 ≥ **80%**（10 题时为 ≥8/10；80 题时为 ≥64/80）
 
 ### 1.2 优化目标
 
-构建**三层自动化体系**，逐步升级：
+构建**分阶段自动化体系**，逐步升级：
 
 | 阶段 | 名称 | 难度 | 自动化程度 | 预计周期 |
 |------|------|------|-----------|---------|
@@ -47,112 +80,108 @@
 
 将 LlamaIndex 的7种引擎全部纳入自动化评测框架。
 
-### 2.2 当前缺失的模式
+### 2.2 模式覆盖（Phase 1 后）
 
-| 模式 | 文件 | 是否需LLM | 缺失原因 |
-|------|------|----------|---------|
-| summary | `summary_engine.py` | 否 | 未集成到verify_m2 |
-| tree | `tree_engine.py` | 否 | 未集成到verify_m2 |
-| graph | `graph_engine.py` | 否 | 未集成到verify_m2 |
-| sub_question | `subquestion_engine.py` | **是** | 需LLM，违反M2原则 |
+| 模式 | 文件 | 是否需 LLM | verify_m2 | 说明 |
+|------|------|-----------|-----------|------|
+| vector / bm25 / hybrid / hybrid_rerank | `hybrid_chain.py` 等 | 否 | 默认 | LangChain 主链路 |
+| router | `router_engine.py` | 否 | 默认 | LlamaIndex 路由 |
+| summary | `summary_engine.py` | 否 | `--extended` | 章节级摘要召回 |
+| tree | `tree_engine.py` | 否 | `--extended` | 目录层级排序 |
+| graph | `graph_engine.py` | 否 | `--extended` | hybrid 种子 + 图谱 1-hop |
+| sub_question | `subquestion_engine.py` | **是** | **不纳入** | 放 M6 RAGAS / 在线评测 |
 
 ### 2.3 实施方案
 
-#### Step 1: 扩展 verify_m2.py
+#### Step 1: 扩展 verify_m2.py ✅
 
-**修改文件**：`scripts/verify_m2.py`
+**已实现文件**：`scripts/verify_m2.py`
+
+**实际 CLI**（与设计等价，以代码为准）：
+
+```powershell
+python scripts/verify_m2.py                          # 5 模式
+python scripts/verify_m2.py --extended               # 7 模式（不含 sub_question）
+python scripts/verify_m2.py --mode graph             # 单模式（graph 时自动 extended）
+python scripts/verify_m2.py --timeout 120           # 单题超时（秒），超时计 miss
+python scripts/verify_m2.py --parallel               # 多模式并行（非逐题并行）
+python scripts/verify_m2.py --extended --write-evolution
+python scripts/verify_m2.py --comparison-md reports/m2_mode_comparison.md
+```
+
+**程序化调用**（供调参脚本）：`run_benchmark(golden_path, extended=..., mode=...)`
+
+<details>
+<summary>规划参考代码（已实现，仅供对照）</summary>
 
 ```python
-# 新增导入
-from apps.retrieval.llamaindex.graph_engine import query_graph
-from apps.retrieval.llamaindex.summary_engine import query_summary
-from apps.retrieval.llamaindex.tree_engine import query_tree
-from apps.retrieval.llamaindex.subquestion_engine import query_subquestion
-
-# 扩展 MODES 列表
-MODES_EXTENDED = [
-    ("vector", lambda q: retrieve_context(q, mode="vector", rerank=False)),
-    ("bm25", lambda q: retrieve_context(q, mode="bm25", rerank=False)),
-    ("hybrid", lambda q: retrieve_context(q, mode="hybrid", rerank=False)),
-    ("hybrid_rerank", lambda q: retrieve_context(q, mode="hybrid_rerank")),
-    ("router", query_router),
-    # 新增
+MODES_EXTENDED = MODES_BASE + [
     ("graph", lambda q: query_graph(q, top_k=5)),
     ("summary", lambda q: query_summary(q, top_k=5)),
     ("tree", lambda q: query_tree(q, top_k=5)),
 ]
-
-# 注意：sub_question 暂不加入，因为需要LLM调用
+# sub_question 未导入 — 违反 M2 无 LLM 原则
 ```
+</details>
 
-**命令行参数**：
-```bash
-# 默认只测5种基础模式
-python scripts/verify_m2.py
+#### Step 2: 扩充 Golden Dataset ✅
 
-# 可选：测试全部7种（不含sub_question）
-python scripts/verify_m2.py --extended
+**已实现**：
+- 模板 `data/eval/m2_golden.jsonl.example`：**80 题**
+- 生成脚本 `scripts/generate_m2_golden_from_corpus.py`（可重复运行）
+- 本地无 `m2_golden.jsonl` 时，`verify_m2` 经 `resolve_eval_jsonl` **自动回退 `.example`**
 
-# 单独测试某个模式
-python scripts/verify_m2.py --mode graph
-```
+**category 覆盖**（5 类）：
 
-#### Step 2: 扩充 Golden Dataset
+| category | 题量（约） | 用途 |
+|----------|-----------|------|
+| parameter | 核心题 | 设备参数查询 |
+| fault_code | 核心题 | 故障码 / 告警 |
+| procedure | 核心题 | 操作规程 |
+| troubleshooting | 核心题 | 异常排查 |
+| component_relation | 8 题 | **graph 模式**（实体关联问法） |
+| section | 其余 | 章节模板题（扩召回覆盖面） |
 
-**问题**：当前 `m2_golden.jsonl` 只有10题，可能不足以区分7种模式的差异。
+**示例**（component_relation，与语料/图谱一致）：
 
-**方案**：
-1. 扩充到至少40-80题
-2. 覆盖不同类别：
-   - parameter（参数查询）
-   - fault_code（故障码）
-   - procedure（操作流程）
-   - troubleshooting（故障排查）
-   - component_relation（部件关系）← 专门测试graph模式
-
-**示例**：
 ```json
-{
-  "question": "E1024故障会影响哪些部件？",
-  "doc_ids": ["fault_e1024.md", "component_relations.md"],
-  "category": "component_relation"
-}
+{"question": "E01 故障会影响哪台离心泵？", "doc_ids": ["samples/pump_p101_manual.md"], "category": "component_relation"}
 ```
 
-#### Step 3: 更新指标文档
+> 原规划示例中的 `E1024` / `component_relations.md` 为示意；实现使用 demo 语料 + `data/graph/relations.yaml` 别名（如 E1024→E01）。
 
-**修改文件**：`docs/retrieval_modes.md`
+#### Step 3: 更新指标文档 ✅
 
-新增列显示所有7种模式的对比：
+**已实现**：`docs/retrieval_modes.md`（7 行模式 + RAGAS 列占位）、`docs/m2_retrieval.md` §7（CLI 与通过线）。
 
-```markdown
-| 配置 | Recall@5 | P95 ms | 适用场景 | 备注 |
-|------|----------|--------|---------|------|
-| vector only | 100% | 309.5 | 语义搜索 | - |
-| bm25 only | 100% | 84.2 | 精确匹配 | - |
-| hybrid | 100% | 431.3 | 通用 | - |
-| hybrid + rerank | 100% | 13939.8 | 高精度 | 生产默认 |
-| router | 100% | 11523.6 | 智能路由 | - |
-| graph | 95% | 15234.5 | 关联查询 | 新增 |
-| summary | 90% | 12000.0 | 概览检索 | 新增 |
-| tree | 85% | 11000.0 | 层级检索 | 新增 |
-```
+- 扩展三行：`graph engine` / `summary engine` / `tree engine` — Recall/P95 **仅**由 `--write-evolution` 填入，勿手填虚构数。
+- 对比 Markdown：`--extended` 默认写 `reports/m2_mode_comparison.md`；JSON 始终为 `reports/m2_verify.json`。
 
-#### Step 4: 性能优化建议
+#### Step 4: 性能优化
 
-由于新增模式可能较慢，建议：
+| 项 | 状态 | 说明 |
+|----|------|------|
+| `--timeout` | ✅ | 单题超时，超时计 miss |
+| `--parallel` | ✅ | 多 **模式** 并行（非逐题） |
+| embedder/reranker 缓存 | ⬜ 未做 | hybrid_rerank 仍分时加载；大规模矩阵评测前再评估 |
 
-1. **超时设置**：`--timeout` 参数支持自定义
-2. **并行执行**：可选 `--parallel` 加速评测
-3. **缓存机制**：避免重复加载模型
+### 2.6 Phase 1 实现要点（与规划差异）
+
+| 主题 | 规划/常见误解 | 实际实现 |
+|------|--------------|----------|
+| 通过线 | 固定 8/10 | `pass_threshold()` = max(8, 80%×题数) |
+| 7 模式 | 含 sub_question | **不含**；LLM 归 M6 |
+| 指标表 | 新增「适用场景」列 | 保留 RAGAS 列，与现有 evolution 表一致 |
+| Golden 示例 | `E1024` + 独立 relations 文件 | demo `samples/*.md` + `relations.yaml` 别名 |
+| 对比报告 | 仅 JSON | JSON + 可选/extended 默认 Markdown |
 
 ### 2.4 验收标准
 
-- [ ] `verify_m2.py --extended` 能成功运行7种模式评测
-- [ ] Golden Dataset 扩充到≥40题，覆盖5个类别
-- [ ] `docs/retrieval_modes.md` 显示7种模式对比表
-- [ ] 生成详细的对比分析报告（Markdown格式）
-- [ ] 单元测试覆盖新增代码
+- [x] `verify_m2.py --extended` 能成功运行7种模式评测
+- [x] Golden Dataset 扩充到≥40题，覆盖5个类别
+- [x] `docs/retrieval_modes.md` 显示7种模式对比表
+- [x] 生成详细的对比分析报告（Markdown格式）
+- [x] 单元测试覆盖新增代码
 
 ### 2.5 风险评估
 
@@ -178,84 +207,32 @@ python scripts/verify_m2.py --mode graph
 | **检索** | bm25_top_k | 20 | [10, 50] | 召回数 |
 | **RRF** | rrf_k | 60 | [30, 100] | 融合平滑度 |
 | **Rerank** | rerank_top_n | 5 | [3, 10] | 最终输出数 |
-| **Agent** | context_top_k | 5 | [3, 10] | Prompt上下文 |
+| **Agent** | context_top_k | 5（= rerank_top_n） | [3, 10] | 脚本别名，无独立 profile 键 |
 | **Agent** | max_history_turns | 3 | [1, 5] | 多轮历史 |
 
 ### 3.3 实施方案
 
-#### Step 1: 创建自动调参脚本
+#### Step 1: 创建自动调参脚本 ✅
 
-**新文件**：`scripts/auto_tune_params.py`
+**文件**：`scripts/auto_tune_params.py` · **测试**：`tests/test_auto_tune_params.py`
 
-```python
-"""基于网格搜索的自动参数调优.
+```powershell
+# 单参数（默认用 SEARCH_SPACE 或 --values 覆盖）
+python scripts/auto_tune_params.py --param rrf_k --values 50,60,70
 
-用法：
-  python scripts/auto_tune_params.py --param rrf_k --range 30,40,50,60,70
-  python scripts/auto_tune_params.py --all  # 全参数搜索（慢）
-"""
+# 各参数独立网格（慢；可先 --dry-run 看组合数）
+python scripts/auto_tune_params.py --all
 
-import argparse
-import json
-from itertools import product
-from pathlib import Path
-
-def grid_search_rrf_k():
-    """搜索最优rrf_k值."""
-    best_k = 60
-    best_recall = 0
-    results = []
-    
-    for k in [30, 40, 50, 60, 70, 80, 90, 100]:
-        print(f"Testing rrf_k={k}...")
-        
-        # 临时修改profile
-        update_profile_temporarily("retrieval.rrf_k", k)
-        
-        # 运行评测
-        result = run_verify_m2_silent()
-        recall = result["hybrid_rerank"]["recall_at_5"]
-        p95 = result["hybrid_rerank"]["p95_ms"]
-        
-        results.append({
-            "rrf_k": k,
-            "recall": recall,
-            "p95_ms": p95,
-            "score": recall * 0.7 + (10000 / p95) * 0.3  # 加权评分
-        })
-        
-        if recall > best_recall:
-            best_recall = recall
-            best_k = k
-    
-    # 恢复原profile
-    restore_profile()
-    
-    # 输出结果
-    print(f"\nBest rrf_k: {best_k} (Recall: {best_recall:.0%})")
-    save_results(results)
-    
-    return best_k
-
-def update_profile_temporarily(param_path, value):
-    """临时修改profile参数."""
-    # 实现：备份原文件，修改，返回备份路径
-    pass
-
-def restore_profile():
-    """恢复原profile."""
-    pass
-
-def run_verify_m2_silent():
-    """静默运行verify_m2，返回JSON结果."""
-    # 实现：调用verify_m2逻辑，不打印输出
-    pass
-
-def save_results(results):
-    """保存搜索结果."""
-    output = Path("reports/auto_tune_results.json")
-    output.write_text(json.dumps(results, indent=2))
+# 指定验收模式与 profile
+python scripts/auto_tune_params.py --param rrf_k --mode hybrid_rerank --profile dev-single-node
 ```
+
+**行为**：
+
+- `profile_override()` 备份 → 修改 `deploy/profiles/{profile}.yaml` → 跑 `run_benchmark(..., mode=--mode)` → **必定还原**。
+- 评分：`score = recall×0.7 + (10000/p95_ms)×0.3`（与下文伪代码一致）。
+- 输出：`reports/auto_tune_results.json`（**不**自动改 profile、不自动 commit）。
+- `context_top_k` 别名 → `retrieval.rerank_top_n`（见 §3.2、§3.6）。
 
 #### Step 2: 多参数联合优化
 
@@ -305,30 +282,16 @@ print(f"Best parameters: {result.x}")
 print(f"Best score: {-result.fun}")
 ```
 
-#### Step 3: 自动应用与Git集成
+#### Step 3: 自动应用与 Git 集成 ⬜
 
-**功能**：找到最优参数后，自动创建Git分支并提交
+**规划**（未实现）：最优参数写入 profile 并 `git checkout -b auto-tune/...` 提交。
 
-```python
-def auto_commit_best_params(best_params, score):
-    """自动提交最优参数."""
-    import subprocess
-    
-    # 应用参数到profile
-    apply_params_to_profile(best_params)
-    
-    # 创建分支
-    branch_name = f"auto-tune/{datetime.now().strftime('%Y%m%d-%H%M%S')}"
-    subprocess.run(["git", "checkout", "-b", branch_name])
-    
-    # 提交
-    subprocess.run(["git", "add", "deploy/profiles/dev-single-node.yaml"])
-    subprocess.run(["git", "commit", "-m", 
-                    f"Auto-tuned params: {best_params} (score: {score:.2f})"])
-    
-    print(f"Created branch: {branch_name}")
-    print("Please review and merge if satisfied.")
-```
+**当前流程（人工）**：
+
+1. 查看 `reports/auto_tune_results.json` 中 `best` / 最高 `score` 行。
+2. 手动修改 `deploy/profiles/dev-single-node.yaml` 对应字段。
+3. 再跑 `verify_m2.py --write-evolution` 确认无回归。
+4. 自行 commit（禁止脚本自动改 profile 后直接 push）。
 
 #### Step 4: CI/CD集成
 
@@ -369,11 +332,12 @@ jobs:
 
 ### 3.4 验收标准
 
-- [ ] `auto_tune_params.py` 能自动搜索单参数最优值
+- [x] `auto_tune_params.py` 能自动搜索单参数最优值（profile 临时覆盖 + 还原）
+- [x] `--all` 对各参数独立网格搜索并汇总 best
 - [ ] `bayesian_optimize.py` 能搜索多参数组合
-- [ ] 自动生成Git分支和PR
-- [ ] CI/CD每周自动运行调优
-- [ ] 人工Review流程文档化
+- [ ] 自动生成 Git 分支和 PR
+- [ ] CI/CD 每周自动运行调优
+- [x] 人工 Review 流程（见 Step 3「当前流程」；禁止自动 merge）
 
 ### 3.5 风险评估
 
@@ -381,7 +345,18 @@ jobs:
 |------|------|------|---------|
 | 过拟合Golden Dataset | 高 | 高 | 保留20%测试集不参与调优 |
 | 搜索空间过大导致时间长 | 中 | 中 | 使用贝叶斯优化，限制调用次数 |
-| 自动提交的参数不合理 | 低 | 高 | 强制人工Review后才能merge |
+| 自动提交的参数不合理 | 低 | 高 | 当前 **不自动 commit**；结果 JSON + 人工改 profile |
+
+### 3.6 Phase 2 实现要点（Step 1 已落地）
+
+| 主题 | 规划 | 实际 |
+|------|------|------|
+| CLI | `--range` | **`--values`**（逗号分隔） |
+| 静默评测 | `run_verify_m2_silent()` | **`run_benchmark()`**（`verify_m2.py`） |
+| profile 修改 | 永久写入 | **`profile_override` 上下文，结束必还原** |
+| `--all` | 全组合笛卡尔积 | **各参数独立网格**，每参一个 best |
+| 自动 PR | Step 3 规划 | **未做**；见 Step 3「当前流程（人工）」 |
+| 过拟合 | 20% holdout | **未做**；调参前须先固定 holdout 题集（后续 Step 2） |
 
 ---
 
@@ -793,10 +768,10 @@ gantt
 
 | 指标 | 当前 | Phase 1目标 | Phase 2目标 | Phase 3目标 |
 |------|------|------------|------------|------------|
-| 评测模式数 | 5 | 7 | 7 | 7+ |
-| 参数调优时间 | 人工2h | 自动30min | 自动10min | 实时 |
-| 决策依据 | 人工判断 | 数据+人工 | 数据驱动 | 全自动 |
-| Golden Dataset | 10题 | 40题 | 80题 | 持续扩充 |
+| 评测模式数 | **7**（`--extended`） | 7 | 7 | 7+ |
+| 参数调优时间 | 网格搜索可用（慢） | 自动30min | 自动10min | 实时 |
+| 决策依据 | 数据+人工 Review | 数据+人工 | 数据驱动 | 全自动 |
+| Golden Dataset | **80题/5类** | 40题 | 80题 | 持续扩充 |
 
 ### 7.2 业务指标
 
@@ -823,24 +798,23 @@ gantt
 ### 立即执行（本周）
 
 1. ✅ 创建分支 `feature/auto-evaluation-optimization`
-2. ✅ 创建本计划文档
-3. ⬜ 开始Phase 1：扩展 `verify_m2.py`
-4. ⬜ 扩充Golden Dataset到40题
+2. ✅ Phase 1 全部落地（verify_m2 / golden / 文档 / 测试）
+3. ✅ Phase 2 Step 1：`auto_tune_params.py`
+4. ⬜ 本机跑通：`verify_m2 --extended` + `auto_tune_params --param rrf_k`（见 COLLABORATION §3.7）
 
 ### 短期计划（本月）
 
-1. 完成Phase 1全部任务
-2. 启动Phase 2：开发自动调参脚本
-3. Review并合并Phase 1代码
+1. Phase 2 Step 2：`bayesian_optimize.py`（可选依赖 `scikit-optimize`）
+2. Phase 2 Step 3–4：调参结果人工 Review 清单写入 `docs/decisions.md`；CI workflow 草案
+3. Review 并 merge `feature/auto-evaluation-optimization`
 
 ### 中期计划（本季度）
 
-1. 完成Phase 2和Phase 3
-2. 生产环境部署A/B测试
-3. 开始Phase 4调研
+1. Phase 3 A/B（复用现有 `/v1/feedback` + PostgreSQL 可选后端）
+2. Phase 4 仅 POC 调研，不删架构组件
 
 ---
 
 **文档维护者**：开发团队  
-**最后更新**：2026-06-03  
-**下次Review**：2026-06-17（Phase 1完成后）
+**最后更新**：2026-06-03（Phase 1 + P2 Step 1 落地同步）  
+**下次 Review**：Phase 2 Step 2 启动前
