@@ -82,7 +82,7 @@ def get_modes(*, extended: bool = False, mode: str | None = None) -> list[tuple[
     return catalog
 
 
-def load_golden(path: Path) -> list[GoldenCase]:
+def load_golden(path: Path, limit: int | None = None) -> list[GoldenCase]:
     cases: list[GoldenCase] = []
     for line in path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
@@ -96,6 +96,8 @@ def load_golden(path: Path) -> list[GoldenCase]:
                 category=row.get("category", ""),
             )
         )
+        if limit is not None and limit > 0 and len(cases) >= limit:
+            break
     return cases
 
 
@@ -151,8 +153,9 @@ async def run_all(
     mode: str | None = None,
     timeout_s: float | None = None,
     parallel: bool = False,
+    limit: int | None = None,
 ) -> list[dict]:
-    cases = load_golden(golden_path)
+    cases = load_golden(golden_path, limit=limit)
     modes = get_modes(extended=extended, mode=mode)
     if parallel and len(modes) > 1:
         tasks = [
@@ -255,6 +258,7 @@ async def run_benchmark(
     mode: str | None = None,
     timeout_s: float | None = None,
     parallel: bool = False,
+    limit: int | None = None,
 ) -> list[dict]:
     """Programmatic entry for auto-tuning scripts (no stdout)."""
     return await run_all(
@@ -263,6 +267,7 @@ async def run_benchmark(
         mode=mode,
         timeout_s=timeout_s,
         parallel=parallel,
+        limit=limit,
     )
 
 
@@ -301,6 +306,12 @@ def main() -> None:
         action="store_true",
         help="evaluate modes concurrently (not per-case parallel)",
     )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=0,
+        help="evaluate first N questions only (0=all; use tiny golden for smoke)",
+    )
     args = parser.parse_args()
 
     try:
@@ -313,6 +324,7 @@ def main() -> None:
 
     mode = args.mode.strip() or None
     timeout_s = args.timeout if args.timeout > 0 else None
+    limit = args.limit if args.limit > 0 else None
     extended_modes = {name for name, _ in MODES_EXTENDED} - {name for name, _ in MODES_BASE}
     use_extended = args.extended or (mode in extended_modes)
     try:
@@ -323,13 +335,14 @@ def main() -> None:
                 mode=mode,
                 timeout_s=timeout_s,
                 parallel=args.parallel,
+                limit=limit,
             )
         )
     except ValueError as exc:
         print(exc, file=sys.stderr)
         sys.exit(2)
 
-    cases = load_golden(golden_path)
+    cases = load_golden(golden_path, limit=limit)
     threshold = pass_threshold(len(cases))
     print_report(results, threshold=threshold)
     comparison = Path(args.comparison_md) if args.comparison_md else None

@@ -39,6 +39,7 @@ data/eval/*.jsonl
 !data/eval/golden.jsonl.example
 !data/eval/golden_m7.jsonl.example
 !data/eval/m2_golden.jsonl.example
+!data/eval/m2_golden_tiny.jsonl
 !data/eval/.gitkeep
 
 models/
