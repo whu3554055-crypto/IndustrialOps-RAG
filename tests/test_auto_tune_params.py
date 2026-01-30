@@ -20,7 +20,7 @@ def test_score_result_prefers_recall_and_latency() -> None:
 def test_profile_override_restores_yaml(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     import yaml
 
-    from scripts import auto_tune_params
+    from apps.eval import tune_common
 
     profiles = tmp_path / "profiles"
     profiles.mkdir()
@@ -29,10 +29,10 @@ def test_profile_override_restores_yaml(tmp_path: Path, monkeypatch: pytest.Monk
         yaml.safe_dump({"retrieval": {"rrf_k": 60}}, allow_unicode=True),
         encoding="utf-8",
     )
-    monkeypatch.setattr(auto_tune_params, "PROFILES_DIR", profiles)
+    monkeypatch.setattr(tune_common, "PROFILES_DIR", profiles)
 
     original = profile_file.read_text(encoding="utf-8")
-    with auto_tune_params.profile_override("dev-single-node", {"retrieval.rrf_k": 90}):
+    with tune_common.profile_override("dev-single-node", {"retrieval.rrf_k": 90}):
         data = yaml.safe_load(profile_file.read_text(encoding="utf-8"))
         assert data["retrieval"]["rrf_k"] == 90
     assert profile_file.read_text(encoding="utf-8") == original

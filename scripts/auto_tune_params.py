@@ -1,90 +1,45 @@
 """基于网格搜索的自动参数调优.
 
 用法：
-  python scripts/auto_tune_params.py --param rrf_k --values 30,40,50,60,70
+  python scripts/auto_tune_params.py --param rrf_k --values 50,60,70 --limit 8
   python scripts/auto_tune_params.py --all --dry-run
+  python scripts/auto_tune_params.py --golden data/eval/m2_golden_tiny.jsonl
 
-依赖：Milvus + OpenSearch + M1 ingest（与 verify_m2 相同）
+依赖：Milvus + OpenSearch + M1 ingest（``--dry-run`` 除外）
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
-import json
 import sys
-from contextlib import contextmanager
-from datetime import date
 from pathlib import Path
-from typing import Iterator
-
-import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from apps.config import PROFILES_DIR, ROOT, get_settings  # noqa: E402
+from apps.config import ROOT, get_settings  # noqa: E402
+from apps.eval.tune_common import (  # noqa: E402
+    DEFAULT_PROFILE,
+    SEARCH_SPACE,
+    TINY_GOLDEN,
+    limited_golden_file,
+    pick_best,
+    profile_override,
+    resolve_param,
+    save_tune_report,
+    score_result,
+    split_holdout,
+    load_golden_rows,
+    write_golden_rows,
+)
 from apps.eval_paths import resolve_eval_jsonl  # noqa: E402
 from scripts.verify_m2 import run_benchmark  # noqa: E402
 
-DEFAULT_PROFILE = "dev-single-node"
 RESULTS_PATH = ROOT / "reports" / "auto_tune_results.json"
 
-SEARCH_SPACE: dict[str, list[int]] = {
-    "retrieval.vector_top_k": [10, 20, 30, 40, 50],
-    "retrieval.bm25_top_k": [10, 20, 30, 40, 50],
-    "retrieval.rrf_k": [30, 40, 50, 60, 70, 80, 90, 100],
-    "retrieval.rerank_top_n": [3, 5, 7, 10],
-    "agent.max_history_turns": [1, 2, 3, 4, 5],
-}
-
-PARAM_ALIASES: dict[str, str] = {
-    "vector_top_k": "retrieval.vector_top_k",
-    "bm25_top_k": "retrieval.bm25_top_k",
-    "rrf_k": "retrieval.rrf_k",
-    "rerank_top_n": "retrieval.rerank_top_n",
-    "context_top_k": "retrieval.rerank_top_n",
-    "max_history_turns": "agent.max_history_turns",
-}
-
-
-def _resolve_param(name: str) -> str:
-    return PARAM_ALIASES.get(name, name)
-
-
-def _set_nested(data: dict, dotted: str, value: int) -> None:
-    parts = dotted.split(".")
-    node = data
-    for key in parts[:-1]:
-        node = node.setdefault(key, {})
-    node[parts[-1]] = value
-
-
-def _get_nested(data: dict, dotted: str) -> int | None:
-    node: object = data
-    for key in dotted.split("."):
-        if not isinstance(node, dict):
-            return None
-        node = node.get(key)
-    return node if isinstance(node, int) else None
-
-
-def score_result(recall: float, p95_ms: float) -> float:
-    latency_term = 10000 / p95_ms if p95_ms > 0 else 0
-    return recall * 0.7 + latency_term * 0.3
-
-
-@contextmanager
-def profile_override(profile_name: str, updates: dict[str, int]) -> Iterator[Path]:
-    path = PROFILES_DIR / f"{profile_name}.yaml"
-    backup = path.read_text(encoding="utf-8")
-    data = yaml.safe_load(backup) or {}
-    for param_path, value in updates.items():
-        _set_nested(data, param_path, value)
-    path.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
-    try:
-        yield path
-    finally:
-        path.write_text(backup, encoding="utf-8")
+# 兼容旧测试 import
+__all__ = ["PROFILES_DIR", "profile_override", "score_result", "SEARCH_SPACE"]
+from apps.config import PROFILES_DIR  # noqa: E402
 
 
 async def evaluate_once(
@@ -93,9 +48,11 @@ async def evaluate_once(
     *,
     profile_name: str,
     eval_mode: str = "hybrid_rerank",
+    limit: int | None = None,
 ) -> dict:
-    with profile_override(profile_name, updates):
-        results = await run_benchmark(golden_path, mode=eval_mode)
+    with limited_golden_file(golden_path, limit) as eval_path:
+        with profile_override(profile_name, updates):
+            results = await run_benchmark(eval_path, mode=eval_mode)
     row = results[0]
     recall = float(row["recall_at_5"])
     p95 = float(row["p95_ms"])
@@ -118,6 +75,7 @@ async def grid_search_param(
     profile_name: str,
     eval_mode: str = "hybrid_rerank",
     dry_run: bool = False,
+    limit: int | None = None,
 ) -> list[dict]:
     results: list[dict] = []
     for value in values:
@@ -132,23 +90,10 @@ async def grid_search_param(
                 updates,
                 profile_name=profile_name,
                 eval_mode=eval_mode,
+                limit=limit,
             )
         )
     return results
-
-
-def save_results(results: list[dict], path: Path = RESULTS_PATH) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {"date": date.today().isoformat(), "results": results}
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"results -> {path}")
-
-
-def pick_best(results: list[dict]) -> dict | None:
-    scored = [row for row in results if "score" in row]
-    if not scored:
-        return None
-    return max(scored, key=lambda row: row["score"])
 
 
 def main() -> None:
@@ -157,8 +102,15 @@ def main() -> None:
     parser.add_argument("--values", type=str, default="", help="comma-separated ints")
     parser.add_argument("--all", action="store_true", help="search each param independently")
     parser.add_argument("--profile", type=str, default=DEFAULT_PROFILE)
-    parser.add_argument("--golden", type=str, default="data/eval/m2_golden.jsonl")
+    parser.add_argument(
+        "--golden",
+        type=str,
+        default=str(TINY_GOLDEN.relative_to(ROOT)),
+        help="default m2_golden_tiny.jsonl (10 core questions)",
+    )
     parser.add_argument("--mode", type=str, default="hybrid_rerank")
+    parser.add_argument("--limit", type=int, default=0, help="cap questions per trial (0=all)")
+    parser.add_argument("--holdout-ratio", type=float, default=0.0)
     parser.add_argument("--output", type=str, default=str(RESULTS_PATH.relative_to(ROOT)))
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
@@ -166,6 +118,17 @@ def main() -> None:
     profile_name = args.profile or get_settings().ior_profile
     golden_path = resolve_eval_jsonl(args.golden)
     output_path = ROOT / args.output
+    limit = args.limit if args.limit > 0 else None
+
+    if args.holdout_ratio > 0 and not args.dry_run:
+        tune_rows, holdout_rows = split_holdout(
+            load_golden_rows(golden_path),
+            holdout_ratio=args.holdout_ratio,
+        )
+        tune_tmp = ROOT / "reports" / "_grid_tune_tmp.jsonl"
+        write_golden_rows(tune_tmp, tune_rows)
+        golden_path = tune_tmp
+        print(f"tune={len(tune_rows)} holdout={len(holdout_rows)}")
 
     if args.all:
         all_results: list[dict] = []
@@ -178,6 +141,7 @@ def main() -> None:
                     profile_name=profile_name,
                     eval_mode=args.mode,
                     dry_run=args.dry_run,
+                    limit=limit,
                 )
             )
             best = pick_best(rows)
@@ -187,10 +151,11 @@ def main() -> None:
                     f"best {param_path}: value={list(best['params'].values())[0]} "
                     f"score={best['score']} recall={best['recall']:.0%}"
                 )
-        save_results(all_results, output_path)
+        save_tune_report({"results": all_results}, output_path)
+        print(f"results -> {output_path}")
         return
 
-    param_path = _resolve_param(args.param.strip()) if args.param else ""
+    param_path = resolve_param(args.param.strip()) if args.param else ""
     if not param_path:
         parser.error("specify --param or --all")
 
@@ -209,13 +174,15 @@ def main() -> None:
             profile_name=profile_name,
             eval_mode=args.mode,
             dry_run=args.dry_run,
+            limit=limit,
         )
     )
     best = pick_best(results)
-    save_results(results, output_path)
+    save_tune_report({"results": results, "best": best}, output_path)
     if best:
         val = list(best["params"].values())[0]
         print(f"\nBest {param_path}={val} score={best['score']} recall={best['recall']:.0%}")
+    print(f"results -> {output_path}")
 
 
 if __name__ == "__main__":
