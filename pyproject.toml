@@ -49,6 +49,7 @@ doc = ["pdfplumber>=0.11.0"]
 ocr = ["rapidocr-onnxruntime>=1.3.0", "pillow>=10.0.0"]
 poc = ["qdrant-client>=1.9.0"]
 eval-extra = ["trulens-eval>=1.0.0"]
+tune = ["scikit-optimize>=0.10.0"]
 
 [build-system]
 requires = ["setuptools>=69.0"]

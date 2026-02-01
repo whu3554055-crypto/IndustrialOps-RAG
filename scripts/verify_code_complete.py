@@ -20,6 +20,9 @@ CHECKS = [
     ("merge feedback", ROOT / "scripts" / "merge_feedback_to_golden.py"),
     ("qdrant poc", ROOT / "apps" / "retrieval" / "poc" / "qdrant_poc.py"),
     ("m2 golden example", ROOT / "data" / "eval" / "m2_golden.jsonl.example"),
+    ("m2 golden tiny", ROOT / "data" / "eval" / "m2_golden_tiny.jsonl"),
+    ("auto tune common", ROOT / "apps" / "eval" / "tune_common.py"),
+    ("bayesian optimize", ROOT / "scripts" / "bayesian_optimize.py"),
 ]
 
 

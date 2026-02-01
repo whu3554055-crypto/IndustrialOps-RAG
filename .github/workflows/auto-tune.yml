@@ -1,0 +1,42 @@
+name: Auto Tune CI
+
+on:
+  push:
+    branches: [main, master, feature/auto-evaluation-optimization]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  tune-scaffold:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install package
+        run: pip install -e ".[dev]"
+
+      - name: Unit tests (tune / m2)
+        run: >
+          pytest tests/test_tune_common.py tests/test_bayesian_optimize.py
+          tests/test_auto_tune_params.py tests/test_verify_m2.py -q
+
+      - name: Grid search dry-run (tiny golden)
+        run: |
+          python scripts/auto_tune_params.py --param rrf_k --values 60,70 --dry-run --limit 5
+          python scripts/auto_tune_params.py --all --dry-run --golden data/eval/m2_golden_tiny.jsonl
+
+      - name: Bayesian dry-run
+        run: |
+          python scripts/bayesian_optimize.py --dry-run --n-calls 3 --limit 5
+
+      - name: Upload dry-run reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: auto-tune-dryrun
+          path: reports/auto_tune_results.json
