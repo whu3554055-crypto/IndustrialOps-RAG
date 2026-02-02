@@ -27,5 +27,7 @@
 | 2026-06-02 | M7 反馈默认 file 后端 | 无 PostgreSQL 也能闭环；生产可切 `demo.feedback_backend: postgresql` |
 | 2026-06-02 | M7 本机可跳过的是执行非验收 | ingest/vLLM/live demo/真 RAGAS 因硬件可不跑；`verify_m7`+pytest 必 PASS |
 | 2026-06-02 | CI 含 verify_m7 + golden_m7 dry-run --limit 3 | 不跑 ingest/真 RAGAS；真实语料放 `data/corpus/business`（gitignore） |
+| 2026-06-03 | 自动调参只写 reports、不自动改 profile | 防误提交；结果须人工 Review 后再 merge yaml |
+| 2026-06-03 | 调参/贝叶斯默认 tiny golden + `--limit` | 本机 6GB/CPU 不跑 80 题×多轮；全量留大显存或 CI dry-run |
 
 <!-- 新决策追加在表末 -->

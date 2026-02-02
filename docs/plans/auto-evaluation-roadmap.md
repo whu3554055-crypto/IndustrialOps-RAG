@@ -19,17 +19,19 @@
 | P1 | 模型加载缓存（Step 4） | ⬜ 未做 | 路线图建议项，非 P1 阻塞 |
 | P1 | sub_question 纳入 M2 | ❌ 刻意排除 | 需 LLM，归 M6 RAGAS |
 | P2 | 网格搜索调参 | ✅ | `scripts/auto_tune_params.py` |
-| P2 | 贝叶斯多参优化 | ⬜ | `scripts/bayesian_optimize.py` 待建 |
+| P2 | holdout + tiny golden + `--limit` | ✅ | `apps/eval/tune_common.py`、`m2_golden_tiny.jsonl` |
+| P2 | 贝叶斯/随机联合优化 | ✅ | `scripts/bayesian_optimize.py`（`pip install -e ".[tune]"` 可选） |
 | P2 | Git 自动分支/PR | ⬜ | 需人工 Review 后再做 |
-| P2 | CI 每周调参 | ⬜ | `.github/workflows/auto-tune.yml` 待建 |
+| P2 | CI 每周调参 | ✅ dry-run | `.github/workflows/auto-tune.yml`（无 Milvus，仅脚手架） |
 | P3–P4 | A/B 测试 / RL | ⬜ | 见 §4、§5 |
 
 **本地验收（需 Compose + M1 ingest）：**
 
 ```powershell
-python scripts/verify_m2.py --write-evolution
-python scripts/verify_m2.py --extended --write-evolution
+python scripts/verify_m2.py --golden data/eval/m2_golden_tiny.jsonl --limit 8
 python scripts/auto_tune_params.py --param rrf_k --values 50,60,70 --dry-run
+python scripts/bayesian_optimize.py --dry-run --n-calls 3
+# 真检索（慢）：去掉 --dry-run，且需 Compose + ingest
 ```
 
 ---
@@ -234,53 +236,39 @@ python scripts/auto_tune_params.py --param rrf_k --mode hybrid_rerank --profile 
 - 输出：`reports/auto_tune_results.json`（**不**自动改 profile、不自动 commit）。
 - `context_top_k` 别名 → `retrieval.rerank_top_n`（见 §3.2、§3.6）。
 
-#### Step 2: 多参数联合优化
+#### Step 2: 多参数联合优化 ✅
 
-**策略**：使用贝叶斯优化替代网格搜索，减少评估次数
+**文件**：`scripts/bayesian_optimize.py` · **共用**：`apps/eval/tune_common.py` · **测试**：`tests/test_bayesian_optimize.py`
 
-**新文件**：`scripts/bayesian_optimize.py`
+```powershell
+# 本地默认：tiny 10 题 + 5 次迭代（不连 Milvus）
+python scripts/bayesian_optimize.py --dry-run --n-calls 3
 
-```python
-"""使用贝叶斯优化搜索最优参数组合.
+# 真评测（慢）：tiny golden，可选 scikit-optimize
+pip install -e ".[tune]"
+python scripts/bayesian_optimize.py --golden data/eval/m2_golden_tiny.jsonl --n-calls 5
 
-依赖：pip install scikit-optimize
-"""
-
-from skopt import gp_minimize
-from skopt.space import Integer
-
-def objective(params):
-    """目标函数：最大化Recall，最小化延迟."""
-    vector_top_k, bm25_top_k, rrf_k, rerank_top_n = params
-    
-    update_profile({
-        "retrieval.vector_top_k": vector_top_k,
-        "retrieval.bm25_top_k": bm25_top_k,
-        "retrieval.rrf_k": rrf_k,
-        "retrieval.rerank_top_n": rerank_top_n,
-    })
-    
-    result = run_verify_m2_silent()
-    recall = result["hybrid_rerank"]["recall_at_5"]
-    p95 = result["hybrid_rerank"]["p95_ms"]
-    
-    # 负值因为gp_minimize是最小化
-    score = -(recall * 0.7 + (10000 / p95) * 0.3)
-    return score
-
-# 定义搜索空间
-space = [
-    Integer(10, 50, name="vector_top_k"),
-    Integer(10, 50, name="bm25_top_k"),
-    Integer(30, 100, name="rrf_k"),
-    Integer(3, 10, name="rerank_top_n"),
-]
-
-# 执行优化
-result = gp_minimize(objective, space, n_calls=50, random_state=42)
-print(f"Best parameters: {result.x}")
-print(f"Best score: {-result.fun}")
+# holdout：80% 题调参，最优组合在 holdout 上再评一次
+python scripts/bayesian_optimize.py --holdout-ratio 0.2 --n-calls 5 --golden data/eval/m2_golden.jsonl.example
 ```
+
+- **optimizer**：`auto` = 有 `scikit-optimize` 用 GP，否则 **random search**（行为等价于低成本 fallback）。
+- **小样本**：`--limit N` 截断题数；默认 golden = `m2_golden_tiny.jsonl`。
+- **输出**：`reports/bayesian_tune_results.json`（含 `holdout_eval` 若启用 holdout）。
+
+<details>
+<summary>规划参考代码（已实现，仅供对照）</summary>
+
+</details>
+
+#### Step 2b: 小样本与 holdout（低算力）
+
+| 机制 | 文件/参数 | 用途 |
+|------|-----------|------|
+| tiny golden | `data/eval/m2_golden_tiny.jsonl`（10 题） | 本机 smoke / 调参默认集 |
+| `--limit` | `verify_m2` / `auto_tune` / `bayesian` | 只评前 N 题 |
+| `--holdout-ratio` | 调参脚本 | 20% 题不参与搜索，仅验最优组合 |
+| `--dry-run` | 调参脚本 | 只输出计划组合，**零检索** |
 
 #### Step 3: 自动应用与 Git 集成 ⬜
 
@@ -293,51 +281,28 @@ print(f"Best score: {-result.fun}")
 3. 再跑 `verify_m2.py --write-evolution` 确认无回归。
 4. 自行 commit（禁止脚本自动改 profile 后直接 push）。
 
-#### Step 4: CI/CD集成
+#### Step 4: CI/CD 集成 ✅（dry-run 脚手架）
 
-**GitHub Actions工作流**：`.github/workflows/auto-tune.yml`
+**文件**：`.github/workflows/auto-tune.yml`
 
-```yaml
-name: Auto Parameter Tuning
+- push/PR 跑 pytest + `auto_tune_params --dry-run` + `bayesian_optimize --dry-run`
+- **不**启动 Milvus / 不跑真 hybrid_rerank（与 RAGAS CI dry-run 策略一致）
+- 全量 weekly 真调参：留 `workflow_dispatch` + 大显存 runner（后续 overlay）
 
-on:
-  schedule:
-    - cron: '0 2 * * 0'  # 每周日凌晨2点运行
-  workflow_dispatch:  # 手动触发
+<details>
+<summary>规划参考 workflow（真调参版，未启用）</summary>
 
-jobs:
-  tune:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-      
-      - name: Install dependencies
-        run: pip install -e ".[dev]"
-      
-      - name: Run auto-tuning
-        run: python scripts/auto_tune_params.py --all
-      
-      - name: Create PR
-        uses: peter-evans/create-pull-request@v5
-        with:
-          title: "Auto-tuned retrieval parameters"
-          body: "See reports/auto_tune_results.json for details"
-          branch: "auto-tune/params"
-```
+</details>
 
 ### 3.4 验收标准
 
 - [x] `auto_tune_params.py` 能自动搜索单参数最优值（profile 临时覆盖 + 还原）
 - [x] `--all` 对各参数独立网格搜索并汇总 best
-- [ ] `bayesian_optimize.py` 能搜索多参数组合
+- [x] `bayesian_optimize.py` 能搜索多参数组合（GP 或 random fallback）
+- [x] holdout + tiny golden + `--limit` 支持低算力验证
 - [ ] 自动生成 Git 分支和 PR
-- [ ] CI/CD 每周自动运行调优
-- [x] 人工 Review 流程（见 Step 3「当前流程」；禁止自动 merge）
+- [x] CI dry-run 脚手架（`.github/workflows/auto-tune.yml`）
+- [x] 人工 Review 流程（见 Step 3 + `decisions.md` 2026-06-03）
 
 ### 3.5 风险评估
 
@@ -347,16 +312,18 @@ jobs:
 | 搜索空间过大导致时间长 | 中 | 中 | 使用贝叶斯优化，限制调用次数 |
 | 自动提交的参数不合理 | 低 | 高 | 当前 **不自动 commit**；结果 JSON + 人工改 profile |
 
-### 3.6 Phase 2 实现要点（Step 1 已落地）
+### 3.6 Phase 2 实现要点
 
 | 主题 | 规划 | 实际 |
 |------|------|------|
 | CLI | `--range` | **`--values`**（逗号分隔） |
-| 静默评测 | `run_verify_m2_silent()` | **`run_benchmark()`**（`verify_m2.py`） |
-| profile 修改 | 永久写入 | **`profile_override` 上下文，结束必还原** |
-| `--all` | 全组合笛卡尔积 | **各参数独立网格**，每参一个 best |
-| 自动 PR | Step 3 规划 | **未做**；见 Step 3「当前流程（人工）」 |
-| 过拟合 | 20% holdout | **未做**；调参前须先固定 holdout 题集（后续 Step 2） |
+| 默认 golden | 80 题全量 | **`m2_golden_tiny.jsonl`（10 题）** |
+| 静默评测 | `run_verify_m2_silent()` | **`run_benchmark()`** |
+| profile 修改 | 永久写入 | **`profile_override` 必还原** |
+| 贝叶斯 | 50 calls + 全量 | **默认 5 calls + tiny/limit** |
+| 过拟合 | 20% holdout | **`--holdout-ratio`**（可选） |
+| CI | 每周真调参 | **PR 仅 dry-run + pytest** |
+| 自动 PR | Step 3 规划 | **未做** |
 
 ---
 
@@ -799,14 +766,13 @@ gantt
 
 1. ✅ 创建分支 `feature/auto-evaluation-optimization`
 2. ✅ Phase 1 全部落地（verify_m2 / golden / 文档 / 测试）
-3. ✅ Phase 2 Step 1：`auto_tune_params.py`
-4. ⬜ 本机跑通：`verify_m2 --extended` + `auto_tune_params --param rrf_k`（见 COLLABORATION §3.7）
+3. ✅ Phase 2 Step 1–2 + CI dry-run
+4. ⬜ 本机可选：`bayesian_optimize --dry-run`（零成本）或 tiny golden 真评（需 ingest）
 
 ### 短期计划（本月）
 
-1. Phase 2 Step 2：`bayesian_optimize.py`（可选依赖 `scikit-optimize`）
-2. Phase 2 Step 3–4：调参结果人工 Review 清单写入 `docs/decisions.md`；CI workflow 草案
-3. Review 并 merge `feature/auto-evaluation-optimization`
+1. Phase 2 Step 3：调参 Review 清单（已记入 `decisions.md`）；Git 自动 PR 可选
+2. Phase 3 A/B 设计（复用 `/v1/feedback`）
 
 ### 中期计划（本季度）
 
