@@ -3,7 +3,7 @@
 > **文档用途**：规划从当前半自动化流程升级为全自动化评测与优化系统的实施路径  
 > **创建日期**：2026-06-03  
 > **分支**：`feature/auto-evaluation-optimization`  
-> **状态**：Phase 1 ✅ 已落地（2026-06-03）；Phase 2 Step 1 ✅ 已落地；Phase 2 Step 2–4 / Phase 3–4 ⬜ 待做  
+> **状态**：Phase 1 ✅ · Phase 2 ✅（含贝叶斯/holdout/CI dry-run）；**Phase 3 设计稿** → [phase3-ab-test-design.md](./phase3-ab-test-design.md)；P3 编码 / P4 ⬜  
 > **落地说明**：下文「规划代码块」为设计参考；**以仓库实际文件与 CLI 为准**（见 §2.6、§3.6）。
 
 ---
@@ -23,7 +23,10 @@
 | P2 | 贝叶斯/随机联合优化 | ✅ | `scripts/bayesian_optimize.py`（`pip install -e ".[tune]"` 可选） |
 | P2 | Git 自动分支/PR | ⬜ | 需人工 Review 后再做 |
 | P2 | CI 每周调参 | ✅ dry-run | `.github/workflows/auto-tune.yml`（无 Milvus，仅脚手架） |
-| P3–P4 | A/B 测试 / RL | ⬜ | 见 §4、§5 |
+| P3 | A/B 设计稿 | ✅ 文档 | [phase3-ab-test-design.md](./phase3-ab-test-design.md) |
+| P3 | search-only A/B（/v1/search） | ✅ | `apps/ab_test/*`、`mode_dispatch` |
+| P3 | analyze / chat 接入 | ⬜ | 见设计稿 §5–10 |
+| P4 | RL / Bandit | ⬜ | 见 §5 |
 
 **本地验收（需 Compose + M1 ingest）：**
 
@@ -329,6 +332,9 @@ python scripts/bayesian_optimize.py --holdout-ratio 0.2 --n-calls 5 --golden dat
 
 ## 4. Phase 3: A/B测试框架
 
+> **详细设计**（与现网 M7 对齐）：[phase3-ab-test-design.md](./phase3-ab-test-design.md)  
+> **要点**：复用 `feedback_events` + `retrieval_logs`；新增 `ab_assignments`；**不自动 promote**；先 `/v1/search` 后 `/v1/chat`。
+
 ### 4.1 目标
 
 在生产环境同时运行多个检索策略，基于真实用户反馈数据驱动决策。
@@ -360,9 +366,11 @@ flowchart TB
 
 ### 4.3 实施方案
 
+> 下列代码块为 **早期规划参考**；表结构、模块路径、反馈复用策略以 [phase3-ab-test-design.md](./phase3-ab-test-design.md) 为准。
+
 #### Step 1: A/B Test Router
 
-**新文件**：`apps/gateway/ab_test_router.py`
+**规划路径**（设计稿）：`apps/ab_test/router.py`（Gateway 调用，非独立 `gateway/ab_test_router.py`）
 
 ```python
 """A/B测试路由器.
@@ -435,7 +443,10 @@ class ABTestRouter:
 
 #### Step 2: 实验数据记录
 
-**数据库Schema**：`deploy/sql/ab_test_schema.sql`
+**设计稿 Schema**：`deploy/sql/ab_test_schema.sql` — 仅 `ab_assignments`；反馈走 M7 `feedback_events`。
+
+<details>
+<summary>早期规划 SQL（已废弃，勿实现）</summary>
 
 ```sql
 CREATE TABLE ab_test_events (
@@ -463,7 +474,9 @@ CREATE INDEX idx_ab_test_experiment ON ab_test_events(experiment_id);
 CREATE INDEX idx_ab_test_session ON ab_test_events(session_id);
 ```
 
-**记录函数**：`apps/ab_test/logger.py`
+</details>
+
+**记录函数**（设计稿）：`apps/ab_test/assignment_log.py`
 
 ```python
 def log_ab_test_event(experiment_id, session_id, version, query, hits_count):
@@ -539,9 +552,12 @@ def generate_report(version_stats, feedback_stats):
     pass
 ```
 
-#### Step 4: 自动决策与部署
+#### Step 4: 决策与部署（人工）
 
-**规则引擎**：当满足以下条件时，自动提升优胜版本：
+**不实现自动 promote**（ADR 2026-06-03）。分析脚本仅输出 `recommendation`；人工改 profile 后关闭实验。
+
+<details>
+<summary>早期规划：自动 promote（已否决）</summary>
 
 ```python
 def should_promote_winner(report: dict) -> bool:
@@ -582,13 +598,27 @@ def promote_winner(winner_version: str):
     trigger_deployment()
 ```
 
+</details>
+
+### 4.6 与现网差异（设计稿摘要）
+
+| 主题 | 路线图初稿 | 设计稿 / 现网 |
+|------|-----------|----------------|
+| 反馈存储 | `ab_test_feedback` 表 | **`feedback_events`** + JOIN |
+| 请求事件 | `ab_test_events` 表 | **`ab_assignments` + retrieval_logs** |
+| Router 位置 | `apps/gateway/ab_test_router.py` | **`apps/ab_test/router.py`** |
+| 分流算法 | `hash(session_id)` | **SHA256 稳定分桶** |
+| Chat 路径 | 示例直接 `retrieve_context` | **pipeline `_retrieve` 可配置 mode** |
+| Promote | 自动改 profile + git | **人工清单**（同 Phase 2） |
+| 落地顺序 | 四步并行 | **先 search，后 chat** |
+
 ### 4.4 验收标准
 
-- [ ] A/B Test Router能正确分流
-- [ ] 实验数据完整记录到PostgreSQL
-- [ ] 统计分析脚本能生成显著性检验报告
-- [ ] 自动决策规则正常工作
-- [ ] Web UI显示实时实验进度
+- [ ] A/B Router 粘性分流（见设计稿 §2、§11）
+- [ ] `ab_assignments` + `retrieval_logs` 实验字段完整（file 或 PostgreSQL）
+- [ ] `analyze_ab_test.py` 生成显著性报告（CI `--dry-run` fixture）
+- [ ] 人工 promote 清单文档化；**无**自动改 profile
+- [ ] （可选）Demo UI 显示 variant
 
 ### 4.5 风险评估
 
@@ -772,15 +802,16 @@ gantt
 ### 短期计划（本月）
 
 1. Phase 2 Step 3：调参 Review 清单（已记入 `decisions.md`）；Git 自动 PR 可选
-2. Phase 3 A/B 设计（复用 `/v1/feedback`）
+2. ✅ Phase 3 设计稿：[phase3-ab-test-design.md](./phase3-ab-test-design.md)
+3. Phase 3 编码：P3.1 `search` A/B → P3.2 `chat` → analyze
 
 ### 中期计划（本季度）
 
-1. Phase 3 A/B（复用现有 `/v1/feedback` + PostgreSQL 可选后端）
+1. Phase 3 实现（设计稿 §10）；生产启用 `demo.feedback_backend: postgresql`
 2. Phase 4 仅 POC 调研，不删架构组件
 
 ---
 
 **文档维护者**：开发团队  
-**最后更新**：2026-06-03（Phase 1 + P2 Step 1 落地同步）  
-**下次 Review**：Phase 2 Step 2 启动前
+**最后更新**：2026-06-03（P2 全量 + Phase 3 设计稿）  
+**下次 Review**：Phase 3 P3.1 编码启动前

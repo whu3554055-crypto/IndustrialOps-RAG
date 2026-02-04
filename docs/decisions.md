@@ -29,5 +29,10 @@
 | 2026-06-02 | CI 含 verify_m7 + golden_m7 dry-run --limit 3 | 不跑 ingest/真 RAGAS；真实语料放 `data/corpus/business`（gitignore） |
 | 2026-06-03 | 自动调参只写 reports、不自动改 profile | 防误提交；结果须人工 Review 后再 merge yaml |
 | 2026-06-03 | 调参/贝叶斯默认 tiny golden + `--limit` | 本机 6GB/CPU 不跑 80 题×多轮；全量留大显存或 CI dry-run |
+| 2026-06-03 | Phase 3 A/B 不自动 promote | 与调参一致；`analyze_ab_test` 仅建议，改 profile 须人工 |
+| 2026-06-03 | A/B 复用 M7 反馈表、新增 ab_assignments | 不建 `ab_test_feedback`；JOIN `retrieval_log_id` 分析 |
+| 2026-06-03 | A/B 先 search 后 chat | 降 LLM 成本；chat 需 pipeline 可配置 retrieval mode |
+| 2026-06-03 | 生产开 A/B 前双后端切 PostgreSQL | `feedback_backend` + `retrieval_log_backend` 为 postgresql 且 `init_db` |
+| 2026-06-03 | 首个 A/B 实验 search-only | `ab_test.scope: search`；hybrid_rerank vs graph |
 
 <!-- 新决策追加在表末 -->
