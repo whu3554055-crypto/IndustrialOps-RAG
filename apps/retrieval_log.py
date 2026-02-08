@@ -63,6 +63,9 @@ def write_retrieval_log(
     search_query: str,
     hits: list[dict[str, Any]],
     refused: bool,
+    experiment_id: str | None = None,
+    variant: str | None = None,
+    retrieval_mode: str | None = None,
 ) -> dict[str, Any]:
     top_source = hits[0].get("source_file", "") if hits else ""
     row = {
@@ -73,6 +76,9 @@ def write_retrieval_log(
         "hit_count": len(hits),
         "top_source_file": top_source,
         "refused": refused,
+        "experiment_id": experiment_id,
+        "variant": variant,
+        "retrieval_mode": retrieval_mode,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     from apps.metrics import inc_retrieval_log
@@ -108,8 +114,9 @@ def _write_postgres(row: dict[str, Any]) -> None:
             cur.execute(
                 """
                 INSERT INTO retrieval_logs
-                  (log_id, session_id, query, search_query, hit_count, top_source_file, refused, created_at)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                  (log_id, session_id, query, search_query, hit_count, top_source_file,
+                   refused, experiment_id, variant, retrieval_mode, created_at)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 """,
                 (
                     UUID(row["log_id"]),
@@ -119,6 +126,9 @@ def _write_postgres(row: dict[str, Any]) -> None:
                     row["hit_count"],
                     row.get("top_source_file"),
                     row["refused"],
+                    row.get("experiment_id"),
+                    row.get("variant"),
+                    row.get("retrieval_mode"),
                     row["created_at"],
                 ),
             )

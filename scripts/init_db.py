@@ -14,6 +14,7 @@ SQL_FILES = (
     "feedback_schema.sql",
     "session_schema.sql",
     "retrieval_logs_schema.sql",
+    "ab_test_schema.sql",
 )
 
 
