@@ -141,6 +141,24 @@ persistence:
   session_file: reports/chat_sessions.json
   retrieval_log_backend: file
   retrieval_log_file: reports/retrieval_logs.jsonl
+  ab_assignment_file: reports/ab_assignments.jsonl
+
+# Phase 3 A/B — 首个实验 search-only；生产开实验前须：
+#   demo.feedback_backend: postgresql
+#   persistence.retrieval_log_backend: postgresql
+#   python scripts/init_db.py
+ab_test:
+  enabled: false
+  experiment_id: ""
+  traffic_split: 0.5
+  min_sample_size: 200
+  scope: search  # search | chat | both — 拍板：先 search-only
+  version_a:
+    label: A
+    mode: hybrid_rerank
+  version_b:
+    label: B
+    mode: graph
 
 demo:
   corpus_path: data/corpus/demo  # 脱敏演示语料（git 跟踪）；ingest 前 seed_demo_corpus.py

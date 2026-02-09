@@ -1,12 +1,16 @@
 """FastAPI Gateway — 会话、问答、反馈、健康检查."""
 
 import asyncio
+import time
+import uuid
 from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import PlainTextResponse, Response
 from pydantic import BaseModel, Field
 
+from apps.ab_test import load_ab_test_config, select_variant
+from apps.ab_test.assignment_log import write_assignment
 from apps.agent.pipeline import run_agentic_rag
 from apps.feedback import FeedbackEvent, append_feedback, load_feedback_events
 from apps.config import ROOT, get_settings, load_profile
@@ -14,18 +18,11 @@ from apps.ingest_k8s import trigger_ingest_cronjob
 from apps.metrics import inc_chat_request, render_prometheus
 from apps.minio_client import minio_health
 from apps.rate_limit import allow_request
-from apps.retrieval_log import load_recent_logs
+from apps.retrieval_log import load_recent_logs, write_retrieval_log
 from pipelines.ingest.run_ingest import run_ingest_job
 from pipelines.feedback.export_feedback import export_golden_candidates
 from apps.generation.llm_router import generate, list_backend_status  # M4: docs/m4_serving.md
-from apps.retrieval.langchain.hybrid_chain import retrieve_context
-from apps.retrieval.llamaindex.graph_engine import query_graph
-from apps.retrieval.llamaindex.keyword_engine import query_keyword
-from apps.retrieval.llamaindex.router_engine import query_router
-from apps.retrieval.llamaindex.subquestion_engine import query_subquestion
-from apps.retrieval.llamaindex.summary_engine import query_summary
-from apps.retrieval.llamaindex.tree_engine import query_tree
-from apps.retrieval.llamaindex.vector_engine import query_vector
+from apps.retrieval.mode_dispatch import dispatch_search
 
 app = FastAPI(
     title="IndustrialOps-RAG Gateway",
@@ -66,6 +63,10 @@ class FeedbackRequest(BaseModel):
 
 class SearchRequest(BaseModel):
     query: str = Field(..., min_length=1, description="检索问句")
+    session_id: str | None = Field(
+        None,
+        description="A/B 开启时必填，用于粘性分流",
+    )
     mode: str = Field(
         default="hybrid_rerank",
         description="vector | bm25 | hybrid | hybrid_rerank | summary | tree | graph | router | sub_question",
@@ -87,6 +88,9 @@ class SearchResponse(BaseModel):
     query: str
     mode: str
     hits: list[SearchHit]
+    experiment_id: str | None = None
+    variant: str | None = None
+    log_id: str | None = Field(None, description="检索日志 ID，供后续反馈关联")
 
 
 class GenerateRequest(BaseModel):
@@ -189,34 +193,63 @@ async def chat(req: ChatRequest) -> ChatResponse:
     )
 
 
-async def _dispatch_search(query: str, mode: str, top_k: int) -> list[dict]:
-    if mode == "vector":
-        hits = await query_vector(query, top_k=top_k)
-    elif mode in ("bm25", "keyword"):
-        hits = await query_keyword(query, top_k=top_k)
-    elif mode == "hybrid":
-        hits = await retrieve_context(query, mode="hybrid", rerank=False)
-    elif mode == "hybrid_rerank":
-        hits = await retrieve_context(query, mode="hybrid_rerank")
-    elif mode == "summary":
-        hits = await query_summary(query, top_k=top_k)
-    elif mode == "tree":
-        hits = await query_tree(query, top_k=top_k)
-    elif mode == "graph":
-        hits = await query_graph(query, top_k=top_k)
-    elif mode == "router":
-        hits = await query_router(query)
-    elif mode == "sub_question":
-        hits = await query_subquestion(query, top_k=top_k)
-    else:
-        raise ValueError(f"Unknown search mode: {mode}")
-    return hits[:top_k]
-
-
 @app.post("/v1/search", response_model=SearchResponse)  # M2: docs/m2_retrieval.md §5
 async def search(req: SearchRequest) -> SearchResponse:
-    hits = await _dispatch_search(req.query, req.mode, req.top_k)
-    return SearchResponse(query=req.query, mode=req.mode, hits=hits)
+    ab_config = load_ab_test_config()
+    mode = req.mode
+    experiment_id: str | None = None
+    variant: str | None = None
+    log_id: str | None = None
+
+    if ab_config and ab_config.active_for_search():
+        if not req.session_id:
+            raise HTTPException(
+                status_code=400,
+                detail="session_id is required when ab_test is enabled (scope=search|both)",
+            )
+        selection = select_variant(req.session_id, ab_config)
+        mode = selection.mode
+        experiment_id = selection.experiment_id
+        variant = selection.variant
+        log_id = str(uuid.uuid4())
+
+    t0 = time.perf_counter()
+    try:
+        hits = await dispatch_search(req.query, mode, req.top_k)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    latency_ms = (time.perf_counter() - t0) * 1000.0
+
+    if log_id and req.session_id:
+        write_retrieval_log(
+            log_id=log_id,
+            session_id=req.session_id,
+            query=req.query,
+            search_query=req.query,
+            hits=hits,
+            refused=False,
+            experiment_id=experiment_id,
+            variant=variant,
+            retrieval_mode=mode,
+        )
+        write_assignment(
+            log_id=log_id,
+            experiment_id=experiment_id or "",
+            session_id=req.session_id,
+            variant=variant or "",
+            retrieval_mode=mode,
+            scope="search",
+            latency_ms=latency_ms,
+        )
+
+    return SearchResponse(
+        query=req.query,
+        mode=mode,
+        hits=hits,
+        experiment_id=experiment_id,
+        variant=variant,
+        log_id=log_id,
+    )
 
 
 @app.post("/v1/feedback")
