@@ -23,6 +23,9 @@ CHECKS = [
     ("m2 golden tiny", ROOT / "data" / "eval" / "m2_golden_tiny.jsonl"),
     ("auto tune common", ROOT / "apps" / "eval" / "tune_common.py"),
     ("bayesian optimize", ROOT / "scripts" / "bayesian_optimize.py"),
+    ("ab test router", ROOT / "apps" / "ab_test" / "router.py"),
+    ("ab test schema", ROOT / "deploy" / "sql" / "ab_test_schema.sql"),
+    ("mode dispatch", ROOT / "apps" / "retrieval" / "mode_dispatch.py"),
 ]
 
 
