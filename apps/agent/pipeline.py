@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import time
 import uuid
 from dataclasses import dataclass
 
@@ -19,6 +20,8 @@ from apps.agent.prompts import (
 )
 from apps.agent.rewrite import rewrite_query
 from apps.agent.session import append_turn, get_history
+from apps.ab_test.assignment_log import write_assignment
+from apps.ab_test.resolve import resolve_retrieval_mode
 from apps.retrieval_log import write_retrieval_log
 from apps.agent.tools.hybrid_search import hybrid_search
 from apps.agent.tools.self_check import check_answer_supported, check_retrieval_confidence
@@ -32,6 +35,9 @@ class PipelineResult:
     citations: list[dict]
     retrieval_log_id: str | None
     refused: bool
+    experiment_id: str | None = None
+    variant: str | None = None
+    retrieval_mode: str | None = None
 
 
 def _agent_config() -> dict:
@@ -74,8 +80,8 @@ def _include_history_in_generation(cfg: dict) -> bool:
     return bool(cfg.get("include_history_in_generation", False))
 
 
-async def _retrieve(search_query: str, cfg: dict) -> list[dict]:
-    return await hybrid_search(search_query, top_k=_context_top_k(cfg))
+async def _retrieve(search_query: str, cfg: dict, *, mode: str) -> list[dict]:
+    return await hybrid_search(search_query, top_k=_context_top_k(cfg), mode=mode)
 
 
 async def _generate_answer(
@@ -108,9 +114,16 @@ async def run_agentic_rag(
 
     session_history = history if history is not None else get_history(session_id, max_turns)
     log_id = str(uuid.uuid4())
+    resolved = resolve_retrieval_mode(session_id)
+    retrieval_mode = resolved.mode
+    experiment_id = resolved.experiment_id
+    variant = resolved.variant
+    retrieve_latency_ms = 0.0
 
     search_query = await rewrite_query(query, session_history)
-    hits = await _retrieve(search_query, cfg)
+    t0 = time.perf_counter()
+    hits = await _retrieve(search_query, cfg, mode=retrieval_mode)
+    retrieve_latency_ms += (time.perf_counter() - t0) * 1000.0
 
     def _log(h: list[dict], refused: bool) -> None:
         write_retrieval_log(
@@ -120,7 +133,20 @@ async def run_agentic_rag(
             search_query=search_query,
             hits=h,
             refused=refused,
+            experiment_id=experiment_id,
+            variant=variant,
+            retrieval_mode=retrieval_mode,
         )
+        if experiment_id and variant:
+            write_assignment(
+                log_id=log_id,
+                experiment_id=experiment_id,
+                session_id=session_id,
+                variant=variant,
+                retrieval_mode=retrieval_mode,
+                scope="chat",
+                latency_ms=retrieve_latency_ms,
+            )
 
     def _refuse(h: list[dict]) -> PipelineResult:
         append_turn(session_id, query, REFUSE_MESSAGE)
@@ -130,6 +156,9 @@ async def run_agentic_rag(
             citations=hits_to_citations(h),
             retrieval_log_id=log_id,
             refused=True,
+            experiment_id=experiment_id,
+            variant=variant,
+            retrieval_mode=retrieval_mode,
         )
 
     if refuse_on_low_confidence and not check_retrieval_confidence(hits):
@@ -142,7 +171,9 @@ async def run_agentic_rag(
         supported = await check_answer_supported(query, answer, check_context)
         if not supported:
             expanded_query = await rewrite_query(query, session_history, expand=True)
-            hits_retry = await _retrieve(expanded_query, cfg)
+            t1 = time.perf_counter()
+            hits_retry = await _retrieve(expanded_query, cfg, mode=retrieval_mode)
+            retrieve_latency_ms += (time.perf_counter() - t1) * 1000.0
             if hits_retry and check_retrieval_confidence(hits_retry):
                 answer_retry = await _generate_answer(query, session_history, hits_retry, cfg)
                 retry_context = format_context(
@@ -163,4 +194,7 @@ async def run_agentic_rag(
         citations=hits_to_citations(hits),
         retrieval_log_id=log_id,
         refused=False,
+        experiment_id=experiment_id,
+        variant=variant,
+        retrieval_mode=retrieval_mode,
     )
