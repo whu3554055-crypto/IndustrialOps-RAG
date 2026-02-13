@@ -70,6 +70,72 @@ def _append_file(row: dict[str, Any]) -> None:
         f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
+def load_assignments(
+    *,
+    experiment_id: str | None = None,
+    limit: int | None = None,
+) -> list[dict[str, Any]]:
+    if assignment_backend() == "postgresql":
+        try:
+            rows = _load_postgres_assignments(experiment_id, limit)
+            if rows:
+                return rows
+        except Exception:
+            pass
+    return _load_file_assignments(experiment_id, limit)
+
+
+def _load_file_assignments(
+    experiment_id: str | None,
+    limit: int | None,
+) -> list[dict[str, Any]]:
+    path = assignment_file_path()
+    if not path.is_file():
+        return []
+    rows: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        row = json.loads(line)
+        if experiment_id and row.get("experiment_id") != experiment_id:
+            continue
+        rows.append(row)
+    if limit is not None:
+        return rows[-limit:]
+    return rows
+
+
+def _load_postgres_assignments(
+    experiment_id: str | None,
+    limit: int | None,
+) -> list[dict[str, Any]]:
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+
+    url = get_settings().database_url.replace("postgresql+asyncpg://", "postgresql://")
+    conn = psycopg2.connect(url)
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            sql = (
+                "SELECT log_id::text, experiment_id, session_id, variant, "
+                "retrieval_mode, scope, latency_ms, created_at "
+                "FROM ab_assignments"
+            )
+            params: list[Any] = []
+            if experiment_id:
+                sql += " WHERE experiment_id = %s"
+                params.append(experiment_id)
+            sql += " ORDER BY created_at ASC"
+            if limit:
+                sql += " LIMIT %s"
+                params.append(int(limit))
+            cur.execute(sql, params or None)
+            return [dict(r) for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+
 def _write_postgres(row: dict[str, Any]) -> None:
     import psycopg2
 

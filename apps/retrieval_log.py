@@ -25,6 +25,63 @@ def log_file_path() -> Path:
     return path if path.is_absolute() else ROOT / path
 
 
+def load_all_logs(
+    *,
+    experiment_id: str | None = None,
+    limit: int | None = None,
+) -> list[dict[str, Any]]:
+    if log_backend() == "postgresql":
+        try:
+            rows = _load_all_postgres(experiment_id, limit)
+            if rows is not None:
+                return rows
+        except Exception:
+            pass
+    rows: list[dict[str, Any]] = []
+    path = log_file_path()
+    if not path.is_file():
+        return rows
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            row = json.loads(line)
+            if experiment_id and row.get("experiment_id") != experiment_id:
+                continue
+            rows.append(row)
+    if limit is not None:
+        return rows[-limit:]
+    return rows
+
+
+def _load_all_postgres(
+    experiment_id: str | None,
+    limit: int | None,
+) -> list[dict[str, Any]] | None:
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+
+    url = get_settings().database_url.replace("postgresql+asyncpg://", "postgresql://")
+    conn = psycopg2.connect(url)
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            sql = (
+                "SELECT log_id::text, session_id, query, search_query, hit_count, "
+                "top_source_file, refused, experiment_id, variant, retrieval_mode, created_at "
+                "FROM retrieval_logs"
+            )
+            params: list[Any] = []
+            if experiment_id:
+                sql += " WHERE experiment_id = %s"
+                params.append(experiment_id)
+            sql += " ORDER BY created_at ASC"
+            if limit:
+                sql += " LIMIT %s"
+                params.append(int(limit))
+            cur.execute(sql, params or None)
+            return [dict(r) for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+
 def load_recent_logs(limit: int = 50) -> list[dict[str, Any]]:
     if log_backend() == "postgresql":
         try:
