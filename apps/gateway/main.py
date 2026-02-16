@@ -10,7 +10,7 @@ from fastapi.responses import PlainTextResponse, Response
 from pydantic import BaseModel, Field
 
 from apps.ab_test import load_ab_test_config, select_variant
-from apps.ab_test.assignment_log import write_assignment
+from apps.ab_test.assignment_log import load_assignments, write_assignment
 from apps.agent.pipeline import run_agentic_rag
 from apps.feedback import FeedbackEvent, append_feedback, load_feedback_events
 from apps.config import ROOT, get_settings, load_profile
@@ -42,6 +42,9 @@ class ChatResponse(BaseModel):
     message_id: str | None = Field(None, description="与 retrieval_log_id 相同，供 /v1/feedback 关联")
     retrieval_log_id: str | None = None
     refused: bool = False
+    experiment_id: str | None = None
+    variant: str | None = None
+    retrieval_mode: str | None = None
 
 
 class IngestRequest(BaseModel):
@@ -190,7 +193,36 @@ async def chat(req: ChatRequest) -> ChatResponse:
         message_id=log_id,
         retrieval_log_id=log_id,
         refused=result.refused,
+        experiment_id=result.experiment_id,
+        variant=result.variant,
+        retrieval_mode=result.retrieval_mode,
     )
+
+
+@app.get("/v1/admin/ab-test/status")
+async def admin_ab_test_status() -> dict:
+    cfg = load_ab_test_config()
+    if cfg is None:
+        return {"enabled": False}
+    rows = load_assignments(experiment_id=cfg.experiment_id)
+    counts: dict[str, int] = {"A": 0, "B": 0}
+    scopes: dict[str, int] = {}
+    for row in rows:
+        v = str(row.get("variant", "?"))
+        counts[v] = counts.get(v, 0) + 1
+        sc = str(row.get("scope", ""))
+        scopes[sc] = scopes.get(sc, 0) + 1
+    return {
+        "enabled": True,
+        "experiment_id": cfg.experiment_id,
+        "traffic_split": cfg.traffic_split,
+        "scope": cfg.scope,
+        "version_a": {"label": cfg.version_a.label, "mode": cfg.version_a.mode},
+        "version_b": {"label": cfg.version_b.label, "mode": cfg.version_b.mode},
+        "assignment_counts": counts,
+        "by_scope": scopes,
+        "total_assignments": len(rows),
+    }
 
 
 @app.post("/v1/search", response_model=SearchResponse)  # M2: docs/m2_retrieval.md §5
