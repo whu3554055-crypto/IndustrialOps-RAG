@@ -1,6 +1,6 @@
 # Phase 3：A/B 测试框架 — 设计稿
 
-> **状态**：P3.1 search-only ✅ 已编码（2026-06-03）；P3.2 chat / P3.3 analyze ⬜  
+> **状态**：P3.1 search ✅ · P3.2 chat ✅ · P3.3 analyze + admin ✅（2026-06-03）；P3.4 Demo UI ⬜  
 > **关联**：[auto-evaluation-roadmap.md](./auto-evaluation-roadmap.md) §4 · [m7_demo.md](../m7_demo.md) · [m3_agent.md](../m3_agent.md)  
 > **前置**：Phase 1（`verify_m2`）✅ · Phase 2（`auto_tune_params` / `bayesian_optimize`）✅  
 > **原则**：不删架构组件；**不自动改 profile / 不自动部署**（与 Phase 2 ADR 一致）

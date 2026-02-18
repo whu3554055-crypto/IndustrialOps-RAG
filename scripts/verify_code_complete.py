@@ -26,6 +26,8 @@ CHECKS = [
     ("ab test router", ROOT / "apps" / "ab_test" / "router.py"),
     ("ab test schema", ROOT / "deploy" / "sql" / "ab_test_schema.sql"),
     ("mode dispatch", ROOT / "apps" / "retrieval" / "mode_dispatch.py"),
+    ("ab resolve", ROOT / "apps" / "ab_test" / "resolve.py"),
+    ("analyze ab test", ROOT / "scripts" / "analyze_ab_test.py"),
 ]
 
 

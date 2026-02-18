@@ -25,7 +25,8 @@
 | P2 | CI 每周调参 | ✅ dry-run | `.github/workflows/auto-tune.yml`（无 Milvus，仅脚手架） |
 | P3 | A/B 设计稿 | ✅ 文档 | [phase3-ab-test-design.md](./phase3-ab-test-design.md) |
 | P3 | search-only A/B（/v1/search） | ✅ | `apps/ab_test/*`、`mode_dispatch` |
-| P3 | analyze / chat 接入 | ⬜ | 见设计稿 §5–10 |
+| P3 | chat A/B + analyze + admin | ✅ | `pipeline`、`analyze_ab_test.py` |
+| P3 | Demo UI 展示 variant | ⬜ | `demo_ui.py` |
 | P4 | RL / Bandit | ⬜ | 见 §5 |
 
 **本地验收（需 Compose + M1 ingest）：**
