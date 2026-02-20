@@ -27,11 +27,18 @@ def test_get_modes_base_and_extended() -> None:
     assert get_modes(mode="graph", extended=True)[0][0] == "graph"
 
 
+def test_get_modes_sub_question_in_extended() -> None:
+    from scripts.verify_m2 import get_modes
+
+    modes = [name for name, _ in get_modes(mode="sub_question", extended=True)]
+    assert modes == ["sub_question"]
+
+
 def test_get_modes_unknown_raises() -> None:
     from scripts.verify_m2 import get_modes
 
     with pytest.raises(ValueError, match="Unknown mode"):
-        get_modes(mode="sub_question", extended=True)
+        get_modes(mode="not_a_mode", extended=True)
 
 
 def test_hit_logic() -> None:

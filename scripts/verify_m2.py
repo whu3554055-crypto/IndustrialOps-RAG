@@ -23,6 +23,7 @@ from apps.eval_paths import resolve_eval_jsonl  # noqa: E402
 from apps.retrieval.langchain.hybrid_chain import retrieve_context  # noqa: E402
 from apps.retrieval.llamaindex.graph_engine import query_graph  # noqa: E402
 from apps.retrieval.llamaindex.router_engine import query_router  # noqa: E402
+from apps.retrieval.llamaindex.subquestion_engine import query_subquestion  # noqa: E402
 from apps.retrieval.llamaindex.summary_engine import query_summary  # noqa: E402
 from apps.retrieval.llamaindex.tree_engine import query_tree  # noqa: E402
 
@@ -44,6 +45,7 @@ MODES_EXTENDED: list[tuple[str, RetrievalFn]] = MODES_BASE + [
     ("graph", lambda q: query_graph(q, top_k=TOP_K)),
     ("summary", lambda q: query_summary(q, top_k=TOP_K)),
     ("tree", lambda q: query_tree(q, top_k=TOP_K)),
+    ("sub_question", lambda q: query_subquestion(q, top_k=TOP_K)),
 ]
 
 MODE_DOC_LABELS: dict[str, str] = {
@@ -55,6 +57,7 @@ MODE_DOC_LABELS: dict[str, str] = {
     "graph": "graph engine",
     "summary": "summary engine",
     "tree": "tree engine",
+    "sub_question": "sub-question engine",
 }
 
 
@@ -287,7 +290,7 @@ def main() -> None:
     parser.add_argument(
         "--extended",
         action="store_true",
-        help="include graph/summary/tree (7 modes total)",
+        help="include graph/summary/tree/sub_question (8 modes total)",
     )
     parser.add_argument(
         "--mode",

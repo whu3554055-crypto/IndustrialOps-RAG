@@ -29,7 +29,7 @@ apps/retrieval/langchain/hybrid_chain.py  ← retrieve_context 主入口
 apps/retrieval/rerank/bge_reranker.py     ← BGE CrossEncoder rerank
 apps/retrieval/llamaindex/*.py      ← Vector/Summary/Tree/Graph/Router/SubQuestion
 apps/gateway/main.py                ← POST /v1/search 多 mode 分发
-scripts/verify_m2.py                ← golden × 5/7 模式对比（--extended）
+scripts/verify_m2.py                ← 10 题 golden × 5 模式对比
 data/eval/m2_golden.jsonl           ← M2 评测集（question + doc_ids）
 tests/test_rrf.py                   ← RRF 单元测试
 deploy/profiles/dev-single-node.yaml  ← retrieval.* / rerank.*
@@ -106,7 +106,7 @@ flowchart LR
 | `tree` | `tree_engine.py` | 手册目录树检索 |
 | `graph` | `graph_engine.py` | 部件/故障关系图谱 |
 | `router` | `router_engine.py` | 规则路由：故障码→keyword，否则 hybrid_rerank |
-| `sub_question` | `subquestion_engine.py` | 复杂问题拆子问 |
+| `sub_question` | `subquestion/` | 复杂问题拆子问 + 多工具 RRF |
 
 **Router 规则**（`router_engine.py`）：匹配 `E01`、`ALM-101`、`故障码 xxx` 等 → 优先 BM25；否则走 hybrid_rerank。
 
@@ -165,9 +165,9 @@ flowchart TB
 | **Tree** | 手册目录层级检索 | `tree_engine.py` | 否 |
 | **Graph** | 部件/故障关联扩展 | `graph_engine.py` | 否 |
 | **Router** | 自动选最佳模式 | `router_engine.py` | 否 |
-| **SubQuestion** | 复杂问题拆解 | `subquestion_engine.py` | **是** |
+| **SubQuestion** | 复杂问题拆解 | `subquestion/` | **否**（rule-based；`generator=llm` 可扩展 M6） |
 
-> **注意**：除 `sub_question` 外，其他6种引擎均不调用LLM，符合M2“纯检索评测”原则。
+> **注意**：M2 默认全部引擎不调用 LLM；`sub_question` 用规则分解 + 多工具 RRF，`retrieval.sub_question.generator=llm` 预留 vLLM 子问题生成（M6）。
 
 ### 4.5 Router Engine 规则逻辑
 
@@ -220,6 +220,27 @@ flowchart TD
 1. **图谱边关联**：通过 `relations.yaml` 找到相关文档
 2. **同文档兄弟**：同一文档的其他chunk作为补充
 
+### 4.7 SubQuestion Engine 流程
+
+```mermaid
+flowchart TD
+    Q[复合 query] --> Gen[RuleBasedQuestionGenerator<br/>规则拆分 + 工具路由]
+    Gen --> SQ1[子问1 → hybrid]
+    Gen --> SQ2[子问2 → keyword]
+    Gen --> SQ0[可选：原问句 → hybrid]
+    SQ1 & SQ2 & SQ0 --> Retrieve[各工具独立检索]
+    Retrieve --> RRF[RRF 融合]
+    RRF --> TopK[Top K hits<br/>retriever=sub_question]
+```
+
+**配置**（`deploy/profiles/dev-single-node.yaml` → `retrieval.sub_question`）：
+
+| 键 | 默认 | 说明 |
+|----|------|------|
+| `generator` | `rule_based` | `llm` 为 M6 预留（当前 NotImplemented） |
+| `min_subquestion_len` | 4 | 拆分后子问最短字符数 |
+| `include_original` | true | 复合问句时额外检索完整原问 |
+
 ---
 
 ## 5. Gateway API：`POST /v1/search`
@@ -261,13 +282,11 @@ flowchart TD
 
 ### 7.1 评测逻辑
 
-- 读 `data/eval/m2_golden.jsonl`（默认回退 `.example`，80 题 / 5 类 category）
+- 读 `data/eval/m2_golden.jsonl`（10 题）
 - 每题：某 mode 检索 Top5，`source_file` 是否含期望 `doc_ids` 之一 → 命中
-- **M2 通过线**：`hybrid_rerank` Recall@5 ≥ **80%**（10 题时为 ≥8/10）
+- **M2 通过线**：`hybrid_rerank` ≥ **8/10**
 
-### 7.2 对比的 mode
-
-**基础 5 模式**（默认）：
+### 7.2 对比的 5 种 mode
 
 | verify 名称 | 实现 |
 |-------------|------|
@@ -277,13 +296,14 @@ flowchart TD
 | hybrid_rerank | `mode=hybrid_rerank` |
 | router | `query_router` |
 
-**扩展 3 模式**（`--extended`，不含 sub_question）：
+**扩展 4 模式**（`--extended`，含 sub_question，均无 LLM）：
 
 | verify 名称 | 实现 |
 |-------------|------|
 | graph | `query_graph(top_k=5)` |
 | summary | `query_summary(top_k=5)` |
 | tree | `query_tree(top_k=5)` |
+| sub_question | `query_subquestion(top_k=5)` |
 
 ### 7.3 命令参数
 
@@ -292,21 +312,10 @@ flowchart TD
 | `--golden` | `data/eval/m2_golden.jsonl` | 评测集路径 |
 | `--output` | `reports/m2_verify.json` | JSON 报告 |
 | `--write-evolution` | off | 回填 `retrieval_modes.md` 指标表 |
-| `--extended` | off | 追加 graph / summary / tree |
-| `--mode` | 全部 | 只测单一模式（如 `--mode graph`） |
-| `--timeout` | 0 | 单题超时（秒），超时记 miss |
-| `--parallel` | off | 多模式并行评测 |
-| `--comparison-md` | off（`--extended` 时默认 `reports/m2_mode_comparison.md`） | Markdown 对比报告 |
 
 ```powershell
 # 前提：Compose 中间件 + ingest（M1）+ Gateway 可选（verify 直连 Python API）
 python scripts/verify_m2.py --write-evolution
-
-# 7 模式全量对比
-python scripts/verify_m2.py --extended --write-evolution
-
-# 单模式
-python scripts/verify_m2.py --mode graph --timeout 120
 ```
 
 **排障**：`WinError 10055` 端口耗尽 → 停 python 进程、sleep 30s 再跑（COLLABORATION §3.7.1）。
