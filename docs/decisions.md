@@ -34,5 +34,7 @@
 | 2026-06-03 | A/B 先 search 后 chat | 降 LLM 成本；chat 需 pipeline 可配置 retrieval mode |
 | 2026-06-03 | 生产开 A/B 前双后端切 PostgreSQL | `feedback_backend` + `retrieval_log_backend` 为 postgresql 且 `init_db` |
 | 2026-06-03 | 首个 A/B 实验 search-only | `ab_test.scope: search`；hybrid_rerank vs graph |
+| 2026-06-03 | SubQuestion 生产走自研、官方 LI 仅 benchmark | 检索 core 与 M1 ingest 一致；`llama-index` 包仅 `li_benchmark` 对照，不接入 `mode_dispatch` 默认路径；见 `docs/plans/subquestion-complete-roadmap.md` |
+| 2026-06-03 | SubQuestion 开发独立分支 | `3d09b32` 起置于 `feature/subquestion-complete`；`feature/auto-evaluation-optimization` 不含该提交 |
 
 <!-- 新决策追加在表末 -->
