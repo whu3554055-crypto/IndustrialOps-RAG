@@ -2,7 +2,8 @@
 
 > **分支**：`feature/subquestion-complete`（自 commit `3d09b32` 起）  
 > **拍板**（2026-06-03）：**生产默认自研 SubQuestionQueryEngine**；官方 `llama-index` **仅 benchmark 对照**，不替换 Gateway/Agent 默认路径。  
-> **关联**：[m2_retrieval.md](../m2_retrieval.md) §4.7 · [decisions.md](../decisions.md) · [auto-evaluation-roadmap.md](./auto-evaluation-roadmap.md)
+> **API 拍板**（2026-06-03）：**Retrieve / Generate 分离** — `/v1/search` 永远 hits-only；SubQuestion **合成**走 `/v1/chat`（`retrieval_mode=sub_question`）；可选 `/v1/query` 作无会话轻量 RAG。  
+> **关联**：[m2_retrieval.md](../m2_retrieval.md) §4.7 · [m3_agent.md](../m3_agent.md) · [decisions.md](../decisions.md)
 
 ---
 
@@ -30,8 +31,8 @@
 |---|------|----------|
 | G1 | vLLM 驱动的 LLM 子问题生成，失败回退 rule_based | `generator=llm` 可跑；LLM 挂掉仍返回 hits |
 | G2 | 工具池覆盖现有 LI 引擎（summary/tree/graph/hybrid_rerank） | 复合问句可路由到 ≥5 种 tool |
-| G3 | 可选「检索 + 合成」完整 QueryEngine 语义 | 新端点或 chat 路径可返回合成答案 + citations |
-| G4 | 可观测：子问题轨迹进日志/API | retrieval_log 或 Search 扩展字段含 `sub_questions` |
+| G3 | 「检索 + 合成」完整 QueryEngine 语义 | **`/v1/chat`**（主）+ 可选 **`/v1/query`** 返回 answer + citations + hits |
+| G4 | 可观测：子问题轨迹进日志 | retrieval_log / chat 响应含 `sub_questions`；search **仅**可选调试字段（无 LLM） |
 | G5 | 官方 LI SubQuestion **对照 benchmark** | `scripts/benchmark_subquestion.py` 或 pytest 对比 recall/延迟 |
 | G6 | M6 复合问句评测集 | golden + RAGAS 子集（用户代劳跑 live） |
 
@@ -41,6 +42,31 @@
 - **不**用官方 LI 替换生产默认 `hybrid_rerank` / Agent 主链
 - **不**在 Phase 3 首个 search-only A/B 中默认纳入 `sub_question`（可 Phase 3+ 单独实验）
 - **不**自动改 profile / 不自动 promote（与 [phase3-ab-test-design.md](./phase3-ab-test-design.md) 一致）
+- **不**在 `/v1/search` 上增加 `synthesize` 或任何 LLM 生成（工业 Retrieve/Generate 分离）
+- **不**暴露 `/v1/subquestion/*` 算法名路径（SubQuestion 是编排策略，不是对外 REST 资源）
+
+### 2.3 API 分层（工业规范）
+
+| 端点 | 职责 | LLM | SubQuestion 角色 |
+|------|------|-----|------------------|
+| **`POST /v1/search`** | Retrieve：证据 chunks | **否** | `mode=sub_question` 仅多路检索 + RRF；可选响应/debug 字段 `sub_questions` |
+| **`POST /v1/chat`** | Query：多轮 Agentic RAG（**生产主入口**） | 是 | `retrieval_mode=sub_question` + 内部 ResponseSynthesizer |
+| **`POST /v1/query`**（可选） | 无会话轻量 RAG：retrieve + 合成 | 是 | 同 chat 合成链，无 rewrite/self-check/history |
+| **`/v1/generate`** | 裸 LLM | 是 | 不参与 SubQuestion |
+
+```mermaid
+flowchart TB
+    subgraph Retrieve["Retrieve 层（可缓存、M2/A/B）"]
+        SEARCH["/v1/search<br/>hits-only"]
+    end
+    subgraph Query["Query 层（token 计费、LLM SLO）"]
+        CHAT["/v1/chat<br/>retrieval_mode=sub_question"]
+        QAPI["/v1/query 可选"]
+    end
+    SEARCH -->|"仅评测/Debug"| SQE[SubQuestionQueryEngine<br/>检索阶段]
+    CHAT --> SQFULL[SubQuestion 管道<br/>拆问+检索+合成]
+    QAPI --> SQFULL
+```
 
 ---
 
@@ -66,7 +92,7 @@ flowchart LR
 | A3 | LLM 失败 → `RuleBasedQuestionGenerator` fallback | `question_gen.py` | 故意 mock 503 仍返回 hits |
 | A4 | 扩展 `DEFAULT_TOOLS`：`summary`/`tree`/`graph`/`hybrid_rerank` | `tools.py` | 各 tool 单测 + verify_m2 单 mode |
 | A5 | `get_default_engine()` 随 profile 重建（去 lru 僵死或加 cache key） | `engine.py` | 改 yaml 后 generator 生效 |
-| A6 | retrieval_log 写入 `sub_questions`、`generator` | `apps/retrieval_log/`、Gateway search | 日志 JSON 可解析 |
+| A6 | retrieval_log 写入 `sub_questions`、`generator`；Search 可选 `include_trace=true` 返回 `sub_questions`（**无 LLM**） | `retrieval_log/`、`gateway/main.py` | 默认不含 trace；M2 verify 不受影响 |
 
 **Profile 扩展（`retrieval.sub_question`）：**
 
@@ -81,16 +107,17 @@ sub_question:
 
 ---
 
-### Phase B — 问答合成（完整 SubQuestion 语义）
+### Phase B — 问答合成（Query 层，完整 SubQuestion 语义）
 
 | Step | 任务 | 主要文件 | 验收 |
 |------|------|----------|------|
-| B1 | 每子问：检索 top_k → 短答 prompt → vLLM（`SubQuestionAnswerGenerator`） | `subquestion/synthesizer.py` 或 `answer_gen.py` | 单测 mock；每子问 ≤256 token |
+| B1 | 每子问：检索 top_k → 短答 prompt → vLLM（`SubQuestionAnswerGenerator`） | `subquestion/synthesizer.py` | 单测 mock；每子问 ≤256 token |
 | B2 | `ResponseSynthesizer`：合并 sub-answers → 最终答案 | 同上 | 复合问句返回连贯中文 |
-| B3 | API：`POST /v1/subquestion/query` 或扩展 Search 可选 `synthesize=true` | `apps/gateway/main.py` | curl 返回 answer + hits + sub_questions |
-| B4 | Agent 可选：`agent.sub_question_for_compound=true` 检测复合问句走 sub_question | `apps/agent/pipeline.py` | verify 脚本或 pytest；默认仍 hybrid_rerank |
+| B3 | **`/v1/chat` 主路径**：`retrieval_mode=sub_question` 时走 SubQuestion 检索 + B1/B2；扩展 `ChatResponse`：`sub_questions`、`sub_answers`（可选） | `pipeline.py`、`gateway/main.py` | curl chat 复合问句返回答案 + citations |
+| B4 | Profile：`agent.default_retrieval_mode` / 复合问句自动选 `sub_question`（可选） | `pipeline.py`、profile | 默认仍 `hybrid_rerank`；显式配置可切换 |
+| B5 | **（可选）** `POST /v1/query`：无 session、无 rewrite/self-check 的轻量 RAG，复用 B1/B2 | `gateway/main.py` | 与 chat 共用合成模块；OpenAPI 独立 schema |
 
-**注意**：`/v1/search` 默认仍只返 **hits**；合成走独立字段或端点，避免破坏 M2 检索验收口径。
+**工业约束**：`/v1/search` **禁止** LLM 合成；M2 Recall、search-only A/B 仅依赖 search 路径。
 
 ---
 
@@ -125,7 +152,7 @@ sub_question:
 | 里程碑 | 内容 | 建议对话 |
 |--------|------|----------|
 | **SQ-A** | Phase A 完成 | 新对话：`按 subquestion roadmap 验收 Phase A` |
-| **SQ-B** | Phase B 合成 API | 拍板：扩展 Search vs 新端点（见 §2.2） |
+| **SQ-B** | Phase B 合成 | **已拍板**：合成走 `/v1/chat`；search hits-only；`/v1/query` 可选 |
 | **SQ-C** | M6 live RAGAS 复合问句 | **用户代劳** vLLM + ingest（COLLABORATION §3） |
 
 ---
@@ -136,7 +163,7 @@ sub_question:
 |------|------|
 | LLM 拆问 JSON 不稳定 | 严格 schema + fallback rule_based |
 | 延迟 = N 子问 × (检索 + 生成) | `llm_max_subquestions`、并行 asyncio.gather |
-| M2 与 M6 口径混淆 | search 默认 hits-only；RAGAS 走 chat/新端点 |
+| M2 与 M6 口径混淆 | search 永远 hits-only；RAGAS / 合成评测走 chat 或 `/v1/query` |
 | LI 版本升级 | benchmark 模块 pin；生产路径零 import |
 
 ---
@@ -147,8 +174,8 @@ sub_question:
 2. A4 + A5（tools + cache）  
 3. A6（日志）  
 4. C1 + C2（golden + verify 分 generator）  
-5. B1 → B3（合成与 API）  
+5. B1 → B3（合成 + `/v1/chat`）  
 6. C3（LI benchmark）  
-7. B4 + C5（Agent/A/B，可选）
+7. B4 + B5 + C5（Agent 策略、可选 `/v1/query`、A/B）
 
 <!-- 状态更新：完成某 Step 后在 §1 表与上文打 ✅ -->

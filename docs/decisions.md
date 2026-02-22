@@ -36,5 +36,6 @@
 | 2026-06-03 | 首个 A/B 实验 search-only | `ab_test.scope: search`；hybrid_rerank vs graph |
 | 2026-06-03 | SubQuestion 生产走自研、官方 LI 仅 benchmark | 检索 core 与 M1 ingest 一致；`llama-index` 包仅 `li_benchmark` 对照，不接入 `mode_dispatch` 默认路径；见 `docs/plans/subquestion-complete-roadmap.md` |
 | 2026-06-03 | SubQuestion 开发独立分支 | `3d09b32` 起置于 `feature/subquestion-complete`；`feature/auto-evaluation-optimization` 不含该提交 |
+| 2026-06-03 | SubQuestion API：Retrieve 与 Generate 分离 | `/v1/search` 永远 hits-only（含 `mode=sub_question`）；LLM 合成仅 Query 层：`/v1/chat` + `retrieval_mode=sub_question`；可选 `/v1/query` 轻量 RAG；禁止 search+synthesize 与 `/v1/subquestion/*` 对外路径 |
 
 <!-- 新决策追加在表末 -->

@@ -6,6 +6,12 @@
 
 **架构拍板**：生产默认 **自研** `apps/retrieval/llamaindex/subquestion/`；官方 `llama-index` 包 **仅用于 benchmark 对照**，不替换 `mode_dispatch` 默认路径。
 
+**API 拍板（工业规范）**：
+
+- `/v1/search` — Retrieve，hits-only；SubQuestion 只做检索，不调合成 LLM
+- `/v1/chat` — Query 主入口；`retrieval_mode=sub_question` 时走拆问 + 检索 + ResponseSynthesizer
+- `/v1/query` — 可选，无会话轻量 RAG（Phase B5）
+
 ## 与 `feature/auto-evaluation-optimization` 的关系
 
 | 分支 | HEAD 说明 |

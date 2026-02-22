@@ -260,6 +260,8 @@ flowchart TD
 
 响应 `hits[]`：`chunk_id`, `doc_id`, `source_file`, `title`, `text`, `score`, `retriever`。
 
+**工业约定（Retrieve / Generate 分离）**：`/v1/search` **永远只返 hits**，不含 LLM 合成答案。`mode=sub_question` 仅表示多路检索 + RRF；完整拆问+合成走 **`POST /v1/chat`**（`retrieval_mode=sub_question`），见 [plans/subquestion-complete-roadmap.md](./plans/subquestion-complete-roadmap.md) §2.3。
+
 **Windows**：用 `curl.exe` + UTF-8 JSON 文件，见 COLLABORATION §3.7.1。
 
 ---
