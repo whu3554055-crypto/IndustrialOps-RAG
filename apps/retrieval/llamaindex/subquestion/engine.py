@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from dataclasses import dataclass, field
 from functools import lru_cache
 
@@ -61,7 +62,7 @@ class SubQuestionQueryEngine:
         self._rrf_k = rrf_k if rrf_k is not None else cfg.get("rrf_k", 60)
 
     async def retrieve(self, query: str, top_k: int = 10) -> SubQuestionResult:
-        subqs = self._generator.generate(query, self._tool_defs)
+        subqs = await self._generator.generate(query, self._tool_defs)
         if not subqs:
             subqs = [SubQuestion(sub_question=query.strip(), tool_name="hybrid")]
 
@@ -124,8 +125,20 @@ class SubQuestionQueryEngine:
 
 
 @lru_cache
-def get_default_engine() -> SubQuestionQueryEngine:
+def _engine_for_config_key(config_key: str) -> SubQuestionQueryEngine:
+    cfg = get_retrieval_config()
     return SubQuestionQueryEngine()
+
+
+def get_default_engine() -> SubQuestionQueryEngine:
+    cfg = get_retrieval_config()
+    key = json.dumps(cfg.get("sub_question", {}), sort_keys=True, ensure_ascii=False)
+    return _engine_for_config_key(key)
+
+
+def clear_default_engine_cache() -> None:
+    """Profile 热更新或单测后清缓存."""
+    _engine_for_config_key.cache_clear()
 
 
 async def query_subquestion(query: str, top_k: int = 10) -> list[dict]:

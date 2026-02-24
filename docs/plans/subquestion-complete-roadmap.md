@@ -14,7 +14,9 @@
 | `SubQuestionQueryEngine` 自研骨架 | ✅ `apps/retrieval/llamaindex/subquestion/` |
 | `RuleBasedQuestionGenerator`（规则拆分 + 故障码→keyword） | ✅ |
 | 工具 `hybrid` / `keyword` + 多路 RRF | ✅ |
-| `LLMQuestionGenerator` | ⬜ 桩（`NotImplementedError`） |
+| `LLMQuestionGenerator` | ✅ vLLM + JSON 解析 |
+| `FallbackQuestionGenerator` | ✅ LLM 失败 → rule_based |
+| `QuestionGenerator.generate` async | ✅ |
 | `ResponseSynthesizer` | ⬜ 未实现 |
 | Gateway `mode=sub_question` | ✅ |
 | `query_subquestion_detail`（调试） | ✅ 代码内，未暴露 HTTP |
@@ -87,11 +89,11 @@ flowchart LR
 
 | Step | 任务 | 主要文件 | 验收 |
 |------|------|----------|------|
-| A1 | 实现 `LLMQuestionGenerator`（async，JSON 输出 sub_question + tool_name） | `question_gen.py`，复用 `apps/generation/llm_router` | 单测 mock vLLM；复合问句拆 ≥2 子问 |
-| A2 | `QuestionGenerator.generate` 改 async；engine 适配 | `engine.py`，`mode_dispatch.py` | pytest asyncio 通过 |
-| A3 | LLM 失败 → `RuleBasedQuestionGenerator` fallback | `question_gen.py` | 故意 mock 503 仍返回 hits |
+| A1 | 实现 `LLMQuestionGenerator`（async，JSON 输出 sub_question + tool_name） | `question_gen.py`，复用 `apps/generation/llm_router` | ✅ 单测 mock vLLM |
+| A2 | `QuestionGenerator.generate` 改 async；engine 适配 | `engine.py` | ✅ |
+| A3 | LLM 失败 → `RuleBasedQuestionGenerator` fallback | `question_gen.py` | ✅ `FallbackQuestionGenerator` |
 | A4 | 扩展 `DEFAULT_TOOLS`：`summary`/`tree`/`graph`/`hybrid_rerank` | `tools.py` | 各 tool 单测 + verify_m2 单 mode |
-| A5 | `get_default_engine()` 随 profile 重建（去 lru 僵死或加 cache key） | `engine.py` | 改 yaml 后 generator 生效 |
+| A5 | `get_default_engine()` 随 profile 重建（config key cache） | `engine.py` | ✅ `clear_default_engine_cache()` |
 | A6 | retrieval_log 写入 `sub_questions`、`generator`；Search 可选 `include_trace=true` 返回 `sub_questions`（**无 LLM**） | `retrieval_log/`、`gateway/main.py` | 默认不含 trace；M2 verify 不受影响 |
 
 **Profile 扩展（`retrieval.sub_question`）：**

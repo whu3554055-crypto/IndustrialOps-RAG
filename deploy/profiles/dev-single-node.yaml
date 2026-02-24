@@ -84,10 +84,13 @@ retrieval:
   bm25_top_k: 20    # OpenSearch 召回
   rrf_k: 60         # RRF 平滑常数 k
   rerank_top_n: 5   # 最终条数；M3 context 默认同源
-  sub_question:      # LlamaIndex SubQuestionQueryEngine（M2 rule-based，无 LLM）
-    generator: rule_based   # rule_based | llm（llm 需 M6 vLLM）
+  sub_question:      # LlamaIndex SubQuestionQueryEngine
+    generator: rule_based   # rule_based | llm（vLLM 拆问，见 question_gen.py）
+    llm_fallback: true      # llm 失败时回退 rule_based
+    llm_max_subquestions: 5
+    llm_max_tokens: 512
     min_subquestion_len: 4
-    include_original: true  # 复合问句时额外检索原问句
+    include_original: true  # 复合问句时额外检索原问句（rule_based）
   llamaindex_modes:  # Gateway /v1/search 可选的 LI 模式列表
     - vector
     - bm25

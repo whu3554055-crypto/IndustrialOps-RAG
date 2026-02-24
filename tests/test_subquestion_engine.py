@@ -1,13 +1,17 @@
-"""SubQuestionQueryEngine — 规则分解单元测试（无 Milvus/OpenSearch）."""
+"""SubQuestionQueryEngine — 规则分解与 LLM 拆问单元测试."""
 
 from __future__ import annotations
+
+import json
 
 import pytest
 
 from apps.retrieval.llamaindex.subquestion.question_gen import (
+    FallbackQuestionGenerator,
     LLMQuestionGenerator,
     RuleBasedQuestionGenerator,
     assign_tool_name,
+    parse_subquestions_json,
     split_subquestions,
 )
 from apps.retrieval.llamaindex.subquestion.types import QueryEngineTool
@@ -35,24 +39,81 @@ def test_assign_tool_name_routes_fault_code_to_keyword() -> None:
     assert assign_tool_name("P-101 出口压力", tool_names={"hybrid", "keyword"}) == "hybrid"
 
 
-def test_rule_based_generator_includes_original_for_compound() -> None:
+@pytest.mark.asyncio
+async def test_rule_based_generator_includes_original_for_compound() -> None:
     gen = RuleBasedQuestionGenerator(include_original=True)
-    subqs = gen.generate("A？还有 B", _TOOL_DEFS)
+    subqs = await gen.generate("A？还有 B", _TOOL_DEFS)
     texts = [sq.sub_question for sq in subqs]
     assert "A？还有 B" in texts
     assert any("A" in t for t in texts)
     assert any("B" in t for t in texts)
 
 
-def test_rule_based_generator_assigns_keyword_tool_for_fault_code_part() -> None:
+@pytest.mark.asyncio
+async def test_rule_based_generator_assigns_keyword_tool_for_fault_code_part() -> None:
     gen = RuleBasedQuestionGenerator(include_original=False)
-    subqs = gen.generate("P-101 参数；故障码 E1024 怎么处理", _TOOL_DEFS)
+    subqs = await gen.generate("P-101 参数；故障码 E1024 怎么处理", _TOOL_DEFS)
     by_text = {sq.sub_question: sq.tool_name for sq in subqs}
     assert by_text["P-101 参数"] == "hybrid"
     assert by_text["故障码 E1024 怎么处理"] == "keyword"
 
 
-def test_llm_generator_raises_not_implemented() -> None:
-    gen = LLMQuestionGenerator()
-    with pytest.raises(NotImplementedError, match="M6"):
-        gen.generate("q", _TOOL_DEFS)
+def test_parse_subquestions_json_from_fence() -> None:
+    raw = """```json
+[{"sub_question": "P-101 出口压力范围", "tool_name": "hybrid"},
+ {"sub_question": "故障码 E1024 处理步骤", "tool_name": "keyword"}]
+```"""
+    subqs = parse_subquestions_json(raw, tool_names={"hybrid", "keyword"})
+    assert len(subqs) == 2
+    assert subqs[1].tool_name == "keyword"
+
+
+def test_parse_subquestions_json_repairs_unknown_tool() -> None:
+    raw = json.dumps([{"sub_question": "故障码 E1024 原因", "tool_name": "unknown"}])
+    subqs = parse_subquestions_json(raw, tool_names={"hybrid", "keyword"})
+    assert subqs[0].tool_name == "keyword"
+
+
+@pytest.mark.asyncio
+async def test_llm_generator_calls_vllm_and_parses() -> None:
+    payload = json.dumps(
+        [
+            {"sub_question": "P-101 出口压力正常范围", "tool_name": "hybrid"},
+            {"sub_question": "E1024 故障怎么处理", "tool_name": "keyword"},
+        ],
+        ensure_ascii=False,
+    )
+
+    async def fake_llm(_messages: list[dict], *, max_tokens: int = 512) -> str:
+        return payload
+
+    gen = LLMQuestionGenerator(llm_generate=fake_llm)
+    subqs = await gen.generate("P-101 压力？还有 E1024", _TOOL_DEFS)
+    assert len(subqs) == 2
+    assert subqs[0].tool_name == "hybrid"
+    assert subqs[1].tool_name == "keyword"
+
+
+@pytest.mark.asyncio
+async def test_fallback_uses_rule_based_when_llm_fails() -> None:
+    async def broken_llm(_messages: list[dict], *, max_tokens: int = 512) -> str:
+        raise RuntimeError("503 vLLM unavailable")
+
+    llm = LLMQuestionGenerator(llm_generate=broken_llm)
+    rule = RuleBasedQuestionGenerator(include_original=False)
+    gen = FallbackQuestionGenerator(llm, rule)
+    subqs = await gen.generate("P-101 参数；故障码 E1024 怎么处理", _TOOL_DEFS)
+    assert len(subqs) >= 2
+    assert gen.name == "llm"
+
+
+@pytest.mark.asyncio
+async def test_fallback_uses_rule_based_on_invalid_json() -> None:
+    async def bad_json(_messages: list[dict], *, max_tokens: int = 512) -> str:
+        return "not json at all"
+
+    llm = LLMQuestionGenerator(llm_generate=bad_json)
+    rule = RuleBasedQuestionGenerator(include_original=False)
+    gen = FallbackQuestionGenerator(llm, rule)
+    subqs = await gen.generate("P-101 参数；故障码 E1024 怎么处理", _TOOL_DEFS)
+    assert len(subqs) >= 2

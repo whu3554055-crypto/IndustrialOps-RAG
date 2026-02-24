@@ -33,7 +33,7 @@ pytest tests/test_subquestion_engine.py -q
 python scripts/verify_m2.py --extended --mode sub_question
 ```
 
-LLM 路径（Phase A 完成后）：
+LLM 路径（Phase A1 已完成，需 vLLM）：
 
 ```powershell
 # profile: retrieval.sub_question.generator: llm
