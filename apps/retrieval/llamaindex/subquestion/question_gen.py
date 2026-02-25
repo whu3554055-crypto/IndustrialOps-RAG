@@ -14,6 +14,10 @@ logger = logging.getLogger(__name__)
 
 SPLIT_PATTERN = re.compile(r"[？?；;]|以及|还有|另外|同时|并且")
 
+_GRAPH_HINT = re.compile(r"部件|关联|影响|关系|哪些|连带")
+_SUMMARY_HINT = re.compile(r"概述|总结|简介|概览|章节背景|文档介绍")
+_TREE_HINT = re.compile(r"目录|结构|哪一章|章节位置|手册结构")
+
 LlmGenerateFn = Callable[..., Awaitable[str]]
 
 
@@ -37,6 +41,14 @@ def assign_tool_name(text: str, *, tool_names: set[str]) -> str:
     """按内容选择子问题对应的 QueryEngineTool."""
     if "keyword" in tool_names and FAULT_CODE_PATTERN.search(text):
         return "keyword"
+    if "graph" in tool_names and _GRAPH_HINT.search(text):
+        return "graph"
+    if "tree" in tool_names and _TREE_HINT.search(text):
+        return "tree"
+    if "summary" in tool_names and _SUMMARY_HINT.search(text):
+        return "summary"
+    if "hybrid_rerank" in tool_names:
+        return "hybrid_rerank"
     if "hybrid" in tool_names:
         return "hybrid"
     return next(iter(tool_names))

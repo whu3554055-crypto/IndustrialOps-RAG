@@ -257,6 +257,7 @@ flowchart TD
 |------|------|
 | `mode` | 见 §4；默认 `hybrid_rerank` |
 | `top_k` | 返回条数上限 1–50 |
+| `include_trace` | 仅 `mode=sub_question` 时有效；为 true 时响应含 `sub_questions` / `subquestion_generator`（无 LLM 合成） |
 
 响应 `hits[]`：`chunk_id`, `doc_id`, `source_file`, `title`, `text`, `score`, `retriever`。
 

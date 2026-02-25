@@ -123,6 +123,7 @@ def write_retrieval_log(
     experiment_id: str | None = None,
     variant: str | None = None,
     retrieval_mode: str | None = None,
+    sub_question_trace: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     top_source = hits[0].get("source_file", "") if hits else ""
     row = {
@@ -138,6 +139,8 @@ def write_retrieval_log(
         "retrieval_mode": retrieval_mode,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
+    if sub_question_trace is not None:
+        row["sub_question_trace"] = sub_question_trace
     from apps.metrics import inc_retrieval_log
 
     if log_backend() == "postgresql":
@@ -163,6 +166,7 @@ def _append_file(row: dict[str, Any]) -> None:
 
 def _write_postgres(row: dict[str, Any]) -> None:
     import psycopg2
+    from psycopg2.extras import Json
 
     url = get_settings().database_url.replace("postgresql+asyncpg://", "postgresql://")
     conn = psycopg2.connect(url)
@@ -172,8 +176,8 @@ def _write_postgres(row: dict[str, Any]) -> None:
                 """
                 INSERT INTO retrieval_logs
                   (log_id, session_id, query, search_query, hit_count, top_source_file,
-                   refused, experiment_id, variant, retrieval_mode, created_at)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                   refused, experiment_id, variant, retrieval_mode, sub_question_trace, created_at)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 """,
                 (
                     UUID(row["log_id"]),
@@ -186,6 +190,9 @@ def _write_postgres(row: dict[str, Any]) -> None:
                     row.get("experiment_id"),
                     row.get("variant"),
                     row.get("retrieval_mode"),
+                    Json(row["sub_question_trace"])
+                    if row.get("sub_question_trace") is not None
+                    else None,
                     row["created_at"],
                 ),
             )

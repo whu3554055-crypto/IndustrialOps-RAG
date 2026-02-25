@@ -92,9 +92,9 @@ flowchart LR
 | A1 | 实现 `LLMQuestionGenerator`（async，JSON 输出 sub_question + tool_name） | `question_gen.py`，复用 `apps/generation/llm_router` | ✅ 单测 mock vLLM |
 | A2 | `QuestionGenerator.generate` 改 async；engine 适配 | `engine.py` | ✅ |
 | A3 | LLM 失败 → `RuleBasedQuestionGenerator` fallback | `question_gen.py` | ✅ `FallbackQuestionGenerator` |
-| A4 | 扩展 `DEFAULT_TOOLS`：`summary`/`tree`/`graph`/`hybrid_rerank` | `tools.py` | 各 tool 单测 + verify_m2 单 mode |
+| A4 | 扩展 `DEFAULT_TOOLS`：`summary`/`tree`/`graph`/`hybrid_rerank` | `tools.py` | ✅ |
 | A5 | `get_default_engine()` 随 profile 重建（config key cache） | `engine.py` | ✅ `clear_default_engine_cache()` |
-| A6 | retrieval_log 写入 `sub_questions`、`generator`；Search 可选 `include_trace=true` 返回 `sub_questions`（**无 LLM**） | `retrieval_log/`、`gateway/main.py` | 默认不含 trace；M2 verify 不受影响 |
+| A6 | retrieval_log + Search `include_trace` | `retrieval_log.py`、`gateway/main.py` | ✅ |
 
 **Profile 扩展（`retrieval.sub_question`）：**
 

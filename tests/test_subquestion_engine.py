@@ -35,8 +35,16 @@ def test_split_subquestions_fallback_single() -> None:
 
 
 def test_assign_tool_name_routes_fault_code_to_keyword() -> None:
-    assert assign_tool_name("故障码 E1024 原因", tool_names={"hybrid", "keyword"}) == "keyword"
-    assert assign_tool_name("P-101 出口压力", tool_names={"hybrid", "keyword"}) == "hybrid"
+    names = {"hybrid", "keyword", "hybrid_rerank"}
+    assert assign_tool_name("故障码 E1024 原因", tool_names=names) == "keyword"
+    assert assign_tool_name("P-101 出口压力", tool_names=names) == "hybrid_rerank"
+
+
+def test_assign_tool_name_routes_graph_and_tree() -> None:
+    names = {"hybrid", "hybrid_rerank", "graph", "tree", "summary", "keyword"}
+    assert assign_tool_name("E1024会影响哪些部件", tool_names=names) == "graph"
+    assert assign_tool_name("手册目录结构在哪一章", tool_names=names) == "tree"
+    assert assign_tool_name("文档概述是什么", tool_names=names) == "summary"
 
 
 @pytest.mark.asyncio

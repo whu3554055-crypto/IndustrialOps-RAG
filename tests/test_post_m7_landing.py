@@ -32,10 +32,16 @@ def test_retrieval_log_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
         search_query="sq",
         hits=[{"source_file": "samples/a.md"}],
         refused=False,
+        sub_question_trace={
+            "generator": "rule_based",
+            "sub_questions": [{"sub_question": "子问", "tool_name": "hybrid"}],
+        },
     )
     lines = (tmp_path / "r.jsonl").read_text(encoding="utf-8").strip().splitlines()
     assert len(lines) == 1
-    assert json.loads(lines[0])["hit_count"] == 1
+    row = json.loads(lines[0])
+    assert row["hit_count"] == 1
+    assert row["sub_question_trace"]["generator"] == "rule_based"
 
 
 def test_run_ingest_job_mock(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

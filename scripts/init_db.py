@@ -15,6 +15,7 @@ SQL_FILES = (
     "session_schema.sql",
     "retrieval_logs_schema.sql",
     "ab_test_schema.sql",
+    "subquestion_trace_schema.sql",
 )
 
 

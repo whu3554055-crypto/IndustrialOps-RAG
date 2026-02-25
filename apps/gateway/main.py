@@ -23,6 +23,7 @@ from pipelines.ingest.run_ingest import run_ingest_job
 from pipelines.feedback.export_feedback import export_golden_candidates
 from apps.generation.llm_router import generate, list_backend_status  # M4: docs/m4_serving.md
 from apps.retrieval.mode_dispatch import dispatch_search
+from apps.retrieval.llamaindex.subquestion_engine import query_subquestion_detail
 
 app = FastAPI(
     title="IndustrialOps-RAG Gateway",
@@ -75,6 +76,15 @@ class SearchRequest(BaseModel):
         description="vector | bm25 | hybrid | hybrid_rerank | summary | tree | graph | router | sub_question",
     )
     top_k: int = Field(default=5, ge=1, le=50)
+    include_trace: bool = Field(
+        default=False,
+        description="mode=sub_question 时返回 sub_questions 轨迹（无 LLM 合成）",
+    )
+
+
+class SubQuestionTraceItem(BaseModel):
+    sub_question: str
+    tool_name: str
 
 
 class SearchHit(BaseModel):
@@ -94,6 +104,8 @@ class SearchResponse(BaseModel):
     experiment_id: str | None = None
     variant: str | None = None
     log_id: str | None = Field(None, description="检索日志 ID，供后续反馈关联")
+    sub_questions: list[SubQuestionTraceItem] | None = None
+    subquestion_generator: str | None = None
 
 
 class GenerateRequest(BaseModel):
@@ -246,11 +258,28 @@ async def search(req: SearchRequest) -> SearchResponse:
         log_id = str(uuid.uuid4())
 
     t0 = time.perf_counter()
+    sub_questions: list[SubQuestionTraceItem] | None = None
+    subquestion_generator: str | None = None
     try:
-        hits = await dispatch_search(req.query, mode, req.top_k)
+        if mode == "sub_question" and req.include_trace:
+            detail = await query_subquestion_detail(req.query, top_k=req.top_k)
+            hits = detail["hits"]
+            sub_questions = [
+                SubQuestionTraceItem(**item) for item in detail.get("sub_questions", [])
+            ]
+            subquestion_generator = detail.get("generator")
+        else:
+            hits = await dispatch_search(req.query, mode, req.top_k)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     latency_ms = (time.perf_counter() - t0) * 1000.0
+
+    trace_payload: dict | None = None
+    if sub_questions is not None:
+        trace_payload = {
+            "generator": subquestion_generator,
+            "sub_questions": [item.model_dump() for item in sub_questions],
+        }
 
     if log_id and req.session_id:
         write_retrieval_log(
@@ -263,6 +292,7 @@ async def search(req: SearchRequest) -> SearchResponse:
             experiment_id=experiment_id,
             variant=variant,
             retrieval_mode=mode,
+            sub_question_trace=trace_payload,
         )
         write_assignment(
             log_id=log_id,
@@ -281,6 +311,8 @@ async def search(req: SearchRequest) -> SearchResponse:
         experiment_id=experiment_id,
         variant=variant,
         log_id=log_id,
+        sub_questions=sub_questions,
+        subquestion_generator=subquestion_generator,
     )
 
 
