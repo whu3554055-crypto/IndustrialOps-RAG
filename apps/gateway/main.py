@@ -24,6 +24,7 @@ from pipelines.feedback.export_feedback import export_golden_candidates
 from apps.generation.llm_router import generate, list_backend_status  # M4: docs/m4_serving.md
 from apps.retrieval.mode_dispatch import dispatch_search
 from apps.retrieval.llamaindex.subquestion_engine import query_subquestion_detail
+from apps.retrieval.llamaindex.subquestion.synthesizer import run_subquestion_query
 
 app = FastAPI(
     title="IndustrialOps-RAG Gateway",
@@ -46,6 +47,23 @@ class ChatResponse(BaseModel):
     experiment_id: str | None = None
     variant: str | None = None
     retrieval_mode: str | None = None
+    sub_questions: list[SubQuestionTraceItem] | None = None
+    sub_answers: list[dict] | None = None
+    subquestion_generator: str | None = None
+
+
+class QueryRequest(BaseModel):
+    query: str = Field(..., min_length=1, description="复合或单一问句（无会话轻量 RAG）")
+    top_k: int = Field(default=5, ge=1, le=50)
+
+
+class QueryResponse(BaseModel):
+    query: str
+    answer: str
+    citations: list[dict] = Field(default_factory=list)
+    sub_questions: list[SubQuestionTraceItem] | None = None
+    sub_answers: list[dict] | None = None
+    subquestion_generator: str | None = None
 
 
 class IngestRequest(BaseModel):
@@ -199,6 +217,11 @@ async def chat(req: ChatRequest) -> ChatResponse:
             detail=f"Agent pipeline failed: {exc}",
         ) from exc
     log_id = result.retrieval_log_id
+    sub_qs = (
+        [SubQuestionTraceItem(**item) for item in result.sub_questions]
+        if result.sub_questions
+        else None
+    )
     return ChatResponse(
         answer=result.answer,
         citations=result.citations,
@@ -208,6 +231,38 @@ async def chat(req: ChatRequest) -> ChatResponse:
         experiment_id=result.experiment_id,
         variant=result.variant,
         retrieval_mode=result.retrieval_mode,
+        sub_questions=sub_qs,
+        sub_answers=result.sub_answers,
+        subquestion_generator=result.subquestion_generator,
+    )
+
+
+@app.post("/v1/query", response_model=QueryResponse)
+async def query_rag(req: QueryRequest) -> QueryResponse:
+    """无会话轻量 RAG — SubQuestion 检索 + 合成（无 rewrite/self-check）."""
+    agent_cfg = load_profile().get("agent", {})
+    raw_chars = agent_cfg.get("max_chars_per_chunk")
+    max_chars = int(raw_chars) if raw_chars is not None else None
+    try:
+        result = await run_subquestion_query(
+            req.query,
+            top_k=req.top_k,
+            sub_answer_max_tokens=int(agent_cfg.get("sub_answer_max_tokens", 256)),
+            synthesis_max_tokens=int(agent_cfg.get("synthesis_max_tokens", 512)),
+            max_chars_per_chunk=max_chars,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"SubQuestion query failed: {exc}") from exc
+    from apps.agent.prompts import hits_to_citations
+
+    sub_qs = [SubQuestionTraceItem(**item) for item in result.sub_questions]
+    return QueryResponse(
+        query=req.query,
+        answer=result.answer,
+        citations=hits_to_citations(result.hits),
+        sub_questions=sub_qs,
+        sub_answers=result.sub_answers,
+        subquestion_generator=result.generator,
     )
 
 

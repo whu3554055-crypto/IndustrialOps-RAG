@@ -103,6 +103,10 @@ class SubQuestionQueryEngine:
             generator=self._generator.name,
         )
 
+    async def retrieve_subquestion_hits(self, sq: SubQuestion, top_k: int) -> list[ChunkHit]:
+        """单个子问题走对应 QueryEngineTool（供 synthesizer 使用）."""
+        return await self._run_tool(sq, top_k)
+
     async def _run_tool(self, sq: SubQuestion, top_k: int) -> list[ChunkHit]:
         fn = self._tools.get(sq.tool_name)
         if fn is None:

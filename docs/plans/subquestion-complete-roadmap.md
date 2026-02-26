@@ -113,11 +113,11 @@ sub_question:
 
 | Step | 任务 | 主要文件 | 验收 |
 |------|------|----------|------|
-| B1 | 每子问：检索 top_k → 短答 prompt → vLLM（`SubQuestionAnswerGenerator`） | `subquestion/synthesizer.py` | 单测 mock；每子问 ≤256 token |
-| B2 | `ResponseSynthesizer`：合并 sub-answers → 最终答案 | 同上 | 复合问句返回连贯中文 |
-| B3 | **`/v1/chat` 主路径**：`retrieval_mode=sub_question` 时走 SubQuestion 检索 + B1/B2；扩展 `ChatResponse`：`sub_questions`、`sub_answers`（可选） | `pipeline.py`、`gateway/main.py` | curl chat 复合问句返回答案 + citations |
-| B4 | Profile：`agent.default_retrieval_mode` / 复合问句自动选 `sub_question`（可选） | `pipeline.py`、profile | 默认仍 `hybrid_rerank`；显式配置可切换 |
-| B5 | **（可选）** `POST /v1/query`：无 session、无 rewrite/self-check 的轻量 RAG，复用 B1/B2 | `gateway/main.py` | 与 chat 共用合成模块；OpenAPI 独立 schema |
+| B1 | 每子问：检索 top_k → 短答 prompt → vLLM（`SubQuestionAnswerGenerator`） | `subquestion/synthesizer.py` | ✅ |
+| B2 | `ResponseSynthesizer`：合并 sub-answers → 最终答案 | 同上 | ✅ |
+| B3 | **`/v1/chat` 主路径**：`retrieval_mode=sub_question` 时走 SubQuestion 检索 + B1/B2；扩展 `ChatResponse` | `pipeline.py`、`gateway/main.py` | ✅ |
+| B4 | Profile：`agent.sub_question_for_compound` / `default_retrieval_mode` | `pipeline.py`、profile | ✅ |
+| B5 | **`POST /v1/query`**：无会话轻量 RAG，复用 B1/B2 | `gateway/main.py` | ✅ |
 
 **工业约束**：`/v1/search` **禁止** LLM 合成；M2 Recall、search-only A/B 仅依赖 search 路径。
 
@@ -154,7 +154,7 @@ sub_question:
 | 里程碑 | 内容 | 建议对话 |
 |--------|------|----------|
 | **SQ-A** | Phase A 完成 | 新对话：`按 subquestion roadmap 验收 Phase A` |
-| **SQ-B** | Phase B 合成 | **已拍板**：合成走 `/v1/chat`；search hits-only；`/v1/query` 可选 |
+| **SQ-B** | Phase B 合成 | ✅ `/v1/chat` + `/v1/query`；search hits-only |
 | **SQ-C** | M6 live RAGAS 复合问句 | **用户代劳** vLLM + ingest（COLLABORATION §3） |
 
 ---

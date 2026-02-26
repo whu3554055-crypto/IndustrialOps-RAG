@@ -105,6 +105,10 @@ agent:
   include_history_in_generation: false  # true=生成也拼 history；默认 false（ADR）
   self_check_enabled: true  # LLM 质检答案；关可省 1～3 次 vLLM 调用
   refuse_on_low_confidence: true  # rerank top score < -2.0 直接拒答
+  sub_question_for_compound: false  # true=复合问句自动 retrieval_mode=sub_question
+  sub_answer_max_tokens: 256       # Phase B 子问短答
+  synthesis_max_tokens: 512        # Phase B 最终合成
+  # default_retrieval_mode: hybrid_rerank  # 设为 sub_question 固定走合成链
   # context_top_k: 缺省=retrieval.rerank_top_n(5)；勿为验收压到 1
   # max_chars_per_chunk: context 超 max_model_len 时按边界截断单 chunk
 

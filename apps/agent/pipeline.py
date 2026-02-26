@@ -27,6 +27,8 @@ from apps.agent.tools.hybrid_search import hybrid_search
 from apps.agent.tools.self_check import check_answer_supported, check_retrieval_confidence
 from apps.config import get_settings, load_profile
 from apps.generation.llm_router import generate
+from apps.retrieval.llamaindex.subquestion.question_gen import split_subquestions
+from apps.retrieval.llamaindex.subquestion.synthesizer import run_subquestion_query
 
 
 @dataclass
@@ -38,6 +40,9 @@ class PipelineResult:
     experiment_id: str | None = None
     variant: str | None = None
     retrieval_mode: str | None = None
+    sub_questions: list[dict] | None = None
+    sub_answers: list[dict] | None = None
+    subquestion_generator: str | None = None
 
 
 def _agent_config() -> dict:
@@ -80,8 +85,60 @@ def _include_history_in_generation(cfg: dict) -> bool:
     return bool(cfg.get("include_history_in_generation", False))
 
 
+def _is_compound_query(query: str) -> bool:
+    retrieval = load_profile(get_settings().ior_profile).get("retrieval", {})
+    sq_cfg = retrieval.get("sub_question", {})
+    min_len = int(sq_cfg.get("min_subquestion_len", 4))
+    return len(split_subquestions(query, min_len=min_len)) > 1
+
+
+def _resolve_effective_mode(
+    resolved_mode: str,
+    query: str,
+    cfg: dict,
+    *,
+    in_ab_experiment: bool,
+) -> str:
+    if in_ab_experiment:
+        return resolved_mode
+    if resolved_mode == "sub_question":
+        return resolved_mode
+    if bool(cfg.get("sub_question_for_compound")) and _is_compound_query(query):
+        return "sub_question"
+    return resolved_mode
+
+
+def _subquestion_synthesis_cfg(cfg: dict) -> dict[str, int | None]:
+    return {
+        "sub_answer_max_tokens": int(cfg.get("sub_answer_max_tokens", 256)),
+        "synthesis_max_tokens": int(cfg.get("synthesis_max_tokens", 512)),
+        "max_chars_per_chunk": _max_chars_per_chunk(cfg),
+    }
+
+
 async def _retrieve(search_query: str, cfg: dict, *, mode: str) -> list[dict]:
     return await hybrid_search(search_query, top_k=_context_top_k(cfg), mode=mode)
+
+
+async def _run_subquestion_path(
+    query: str,
+    cfg: dict,
+    *,
+    top_k: int | None = None,
+) -> tuple[str, list[dict], list[dict], list[dict], str]:
+    synth_cfg = _subquestion_synthesis_cfg(cfg)
+    result = await run_subquestion_query(
+        query,
+        top_k=top_k or _context_top_k(cfg),
+        **synth_cfg,
+    )
+    return (
+        result.answer,
+        result.hits,
+        result.sub_questions,
+        result.sub_answers,
+        result.generator,
+    )
 
 
 async def _generate_answer(
@@ -115,14 +172,41 @@ async def run_agentic_rag(
     session_history = history if history is not None else get_history(session_id, max_turns)
     log_id = str(uuid.uuid4())
     resolved = resolve_retrieval_mode(session_id)
-    retrieval_mode = resolved.mode
+    in_ab_experiment = bool(resolved.experiment_id)
+    retrieval_mode = _resolve_effective_mode(
+        resolved.mode,
+        query,
+        cfg,
+        in_ab_experiment=in_ab_experiment,
+    )
     experiment_id = resolved.experiment_id
     variant = resolved.variant
     retrieve_latency_ms = 0.0
+    sub_questions: list[dict] | None = None
+    sub_answers: list[dict] | None = None
+    subquestion_generator: str | None = None
+    trace_payload: dict | None = None
 
     search_query = await rewrite_query(query, session_history)
     t0 = time.perf_counter()
-    hits = await _retrieve(search_query, cfg, mode=retrieval_mode)
+
+    if retrieval_mode == "sub_question":
+        (
+            answer,
+            hits,
+            sub_questions,
+            sub_answers,
+            subquestion_generator,
+        ) = await _run_subquestion_path(search_query, cfg)
+        trace_payload = {
+            "generator": subquestion_generator,
+            "sub_questions": sub_questions,
+            "sub_answers": sub_answers,
+        }
+    else:
+        hits = await _retrieve(search_query, cfg, mode=retrieval_mode)
+        answer = ""
+
     retrieve_latency_ms += (time.perf_counter() - t0) * 1000.0
 
     def _log(h: list[dict], refused: bool) -> None:
@@ -136,6 +220,7 @@ async def run_agentic_rag(
             experiment_id=experiment_id,
             variant=variant,
             retrieval_mode=retrieval_mode,
+            sub_question_trace=trace_payload,
         )
         if experiment_id and variant:
             write_assignment(
@@ -159,12 +244,17 @@ async def run_agentic_rag(
             experiment_id=experiment_id,
             variant=variant,
             retrieval_mode=retrieval_mode,
+            sub_questions=sub_questions,
+            sub_answers=sub_answers,
+            subquestion_generator=subquestion_generator,
         )
 
     if refuse_on_low_confidence and not check_retrieval_confidence(hits):
-        return _refuse([])
+        return _refuse(hits if hits else [])
 
-    answer = await _generate_answer(query, session_history, hits, cfg)
+    if retrieval_mode != "sub_question":
+        answer = await _generate_answer(query, session_history, hits, cfg)
+
     check_context = format_context(hits, max_chars_per_chunk=_max_chars_per_chunk(cfg))
 
     if self_check_enabled:
@@ -172,10 +262,28 @@ async def run_agentic_rag(
         if not supported:
             expanded_query = await rewrite_query(query, session_history, expand=True)
             t1 = time.perf_counter()
-            hits_retry = await _retrieve(expanded_query, cfg, mode=retrieval_mode)
+            if retrieval_mode == "sub_question":
+                (
+                    answer_retry,
+                    hits_retry,
+                    sub_questions,
+                    sub_answers,
+                    subquestion_generator,
+                ) = await _run_subquestion_path(expanded_query, cfg)
+                trace_payload = {
+                    "generator": subquestion_generator,
+                    "sub_questions": sub_questions,
+                    "sub_answers": sub_answers,
+                }
+            else:
+                hits_retry = await _retrieve(expanded_query, cfg, mode=retrieval_mode)
+                answer_retry = ""
             retrieve_latency_ms += (time.perf_counter() - t1) * 1000.0
             if hits_retry and check_retrieval_confidence(hits_retry):
-                answer_retry = await _generate_answer(query, session_history, hits_retry, cfg)
+                if retrieval_mode != "sub_question":
+                    answer_retry = await _generate_answer(
+                        query, session_history, hits_retry, cfg
+                    )
                 retry_context = format_context(
                     hits_retry, max_chars_per_chunk=_max_chars_per_chunk(cfg)
                 )
@@ -197,4 +305,7 @@ async def run_agentic_rag(
         experiment_id=experiment_id,
         variant=variant,
         retrieval_mode=retrieval_mode,
+        sub_questions=sub_questions,
+        sub_answers=sub_answers,
+        subquestion_generator=subquestion_generator,
     )
