@@ -127,11 +127,11 @@ sub_question:
 
 | Step | 任务 | 主要文件 | 验收 |
 |------|------|----------|------|
-| C1 | 复合问句 golden：`data/eval/m2_compound.jsonl` | data + `verify_m2.py --golden` | ≥20 题，含「A？还有 B」类 |
-| C2 | `verify_m2` 区分 `sub_question` rule vs llm（`--subquestion-generator llm`） | `scripts/verify_m2.py` | 报告分 generator 列 |
-| C3 | 官方 LI benchmark 模块（**不接入生产 dispatch**） | `subquestion/li_benchmark.py` | pytest 对比自研 vs LI recall（dry-run mock 可 CI） |
-| C4 | 文档：`m2_retrieval.md`、`retrieval_modes.md`、本 roadmap 状态列 | docs | 与实现同步 |
-| C5 | （可选）A/B：`sub_question` vs `hybrid_rerank` on compound golden | `ab_test` config | 人工 promote |
+| C1 | 复合问句 golden：`data/eval/m2_compound.jsonl` | data + `verify_m2.py --golden` | ✅ ≥24 题 `.example` |
+| C2 | `verify_m2` 区分 `sub_question` rule vs llm（`--subquestion-generator llm`） | `scripts/verify_m2.py` | ✅ 报告分 generator 列 |
+| C3 | 官方 LI benchmark 模块（**不接入生产 dispatch**） | `subquestion/li_benchmark.py` | ✅ pytest + `benchmark_subquestion.py` |
+| C4 | 文档：`m2_retrieval.md`、`retrieval_modes.md`、本 roadmap 状态列 | docs | ✅ |
+| C5 | （可选）A/B：`sub_question` vs `hybrid_rerank` on compound golden | `compare_compound_ab.py` + profile 示例 | ✅ 人工 promote |
 
 ---
 

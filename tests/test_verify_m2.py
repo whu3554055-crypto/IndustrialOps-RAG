@@ -34,7 +34,55 @@ def test_get_modes_sub_question_in_extended() -> None:
     assert modes == ["sub_question"]
 
 
-def test_get_modes_unknown_raises() -> None:
+def test_get_modes_subquestion_generator_both() -> None:
+    from scripts.verify_m2 import get_modes
+
+    modes = [
+        name
+        for name, _ in get_modes(
+            mode="sub_question",
+            extended=True,
+            subquestion_generator="both",
+        )
+    ]
+    assert modes == ["sub_question[rule_based]", "sub_question[llm]"]
+
+
+def test_parse_subquestion_generator_invalid() -> None:
+    from scripts.verify_m2 import parse_subquestion_generator
+
+    with pytest.raises(ValueError, match="Unknown"):
+        parse_subquestion_generator("invalid")
+
+
+def test_m2_compound_golden_has_enough_cases() -> None:
+    path = ROOT / "data" / "eval" / "m2_compound.jsonl.example"
+    rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert len(rows) >= 20
+    assert any("还有" in row["question"] or "另外" in row["question"] for row in rows)
+
+
+def test_write_comparison_markdown_with_generator(tmp_path: Path) -> None:
+    from scripts.verify_m2 import write_comparison_markdown
+
+    out = tmp_path / "compare.md"
+    write_comparison_markdown(
+        [
+            {
+                "mode": "sub_question[rule_based]",
+                "generator": "rule_based",
+                "recall_at_5": 0.8,
+                "passed": 8,
+                "total": 10,
+                "p95_ms": 100.0,
+                "timeouts": 0,
+            }
+        ],
+        out,
+    )
+    text = out.read_text(encoding="utf-8")
+    assert "generator" in text
+    assert "rule_based" in text
     from scripts.verify_m2 import get_modes
 
     with pytest.raises(ValueError, match="Unknown mode"):

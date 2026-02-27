@@ -5,8 +5,14 @@
 
 from apps.retrieval.llamaindex.subquestion.engine import (
     SubQuestionQueryEngine,
+    build_subquestion_engine,
     query_subquestion,
     query_subquestion_detail,
 )
 
-__all__ = ["SubQuestionQueryEngine", "query_subquestion", "query_subquestion_detail"]
+__all__ = [
+    "SubQuestionQueryEngine",
+    "build_subquestion_engine",
+    "query_subquestion",
+    "query_subquestion_detail",
+]

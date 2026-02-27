@@ -48,6 +48,8 @@ MODES_EXTENDED: list[tuple[str, RetrievalFn]] = MODES_BASE + [
     ("sub_question", lambda q: query_subquestion(q, top_k=TOP_K)),
 ]
 
+SUBQUESTION_GENERATOR_CHOICES = ("rule_based", "llm", "both")
+
 MODE_DOC_LABELS: dict[str, str] = {
     "vector": "vector only",
     "bm25": "bm25 only",
@@ -58,7 +60,49 @@ MODE_DOC_LABELS: dict[str, str] = {
     "summary": "summary engine",
     "tree": "tree engine",
     "sub_question": "sub-question engine",
+    "sub_question[rule_based]": "sub-question (rule_based)",
+    "sub_question[llm]": "sub-question (llm)",
 }
+
+
+def make_subquestion_fn(generator: str | None) -> RetrievalFn:
+    if generator is None:
+        return lambda q: query_subquestion(q, top_k=TOP_K)
+    return lambda q: query_subquestion(q, top_k=TOP_K, generator=generator)
+
+
+def expand_subquestion_modes(
+    modes: list[tuple[str, RetrievalFn]],
+    *,
+    subquestion_generator: str | None,
+) -> list[tuple[str, RetrievalFn]]:
+    if not subquestion_generator:
+        return modes
+
+    expanded: list[tuple[str, RetrievalFn]] = []
+    generators: list[str]
+    if subquestion_generator == "both":
+        generators = ["rule_based", "llm"]
+    else:
+        generators = [subquestion_generator]
+
+    for mode_name, fn in modes:
+        if mode_name != "sub_question":
+            expanded.append((mode_name, fn))
+            continue
+        for gen in generators:
+            expanded.append((f"sub_question[{gen}]", make_subquestion_fn(gen)))
+    return expanded
+
+
+def parse_subquestion_generator(value: str) -> str | None:
+    raw = value.strip().lower()
+    if not raw or raw == "profile":
+        return None
+    if raw not in SUBQUESTION_GENERATOR_CHOICES:
+        choices = ", ".join(SUBQUESTION_GENERATOR_CHOICES)
+        raise ValueError(f"Unknown --subquestion-generator {value!r}; choose: profile, {choices}")
+    return raw
 
 
 @dataclass
@@ -74,15 +118,25 @@ def pass_threshold(total: int) -> int:
     return max(PASS_MIN, int(total * PASS_RATIO))
 
 
-def get_modes(*, extended: bool = False, mode: str | None = None) -> list[tuple[str, RetrievalFn]]:
+def get_modes(
+    *,
+    extended: bool = False,
+    mode: str | None = None,
+    subquestion_generator: str | None = None,
+) -> list[tuple[str, RetrievalFn]]:
     catalog = MODES_EXTENDED if extended else MODES_BASE
     if mode:
         selected = [entry for entry in catalog if entry[0] == mode]
+        if not selected and mode.startswith("sub_question["):
+            gen = mode[len("sub_question[") : -1]
+            if gen in ("rule_based", "llm"):
+                selected = [(mode, make_subquestion_fn(gen))]
         if not selected:
             names = ", ".join(name for name, _ in catalog)
             raise ValueError(f"Unknown mode {mode!r}; choose from: {names}")
-        return selected
-    return catalog
+        return expand_subquestion_modes(selected, subquestion_generator=subquestion_generator)
+    modes = expand_subquestion_modes(catalog, subquestion_generator=subquestion_generator)
+    return modes
 
 
 def load_golden(path: Path, limit: int | None = None) -> list[GoldenCase]:
@@ -122,6 +176,7 @@ async def eval_mode(
     fn: RetrievalFn,
     *,
     timeout_s: float | None = None,
+    generator: str | None = None,
 ) -> dict:
     passed = 0
     latencies: list[float] = []
@@ -139,7 +194,7 @@ async def eval_mode(
         if _hit(sources, case.doc_ids):
             passed += 1
     p95 = sorted(latencies)[max(0, int(len(latencies) * 0.95) - 1)] if latencies else 0
-    return {
+    row: dict = {
         "mode": mode_name,
         "recall_at_5": passed / len(cases) if cases else 0,
         "passed": passed,
@@ -147,6 +202,11 @@ async def eval_mode(
         "p95_ms": round(p95, 1),
         "timeouts": timeouts,
     }
+    if generator:
+        row["generator"] = generator
+    elif mode_name.startswith("sub_question["):
+        row["generator"] = mode_name[len("sub_question[") : -1]
+    return row
 
 
 async def run_all(
@@ -157,12 +217,25 @@ async def run_all(
     timeout_s: float | None = None,
     parallel: bool = False,
     limit: int | None = None,
+    subquestion_generator: str | None = None,
 ) -> list[dict]:
     cases = load_golden(golden_path, limit=limit)
-    modes = get_modes(extended=extended, mode=mode)
+    modes = get_modes(
+        extended=extended,
+        mode=mode,
+        subquestion_generator=subquestion_generator,
+    )
     if parallel and len(modes) > 1:
         tasks = [
-            eval_mode(cases, mode_name, fn, timeout_s=timeout_s)
+            eval_mode(
+                cases,
+                mode_name,
+                fn,
+                timeout_s=timeout_s,
+                generator=mode_name[len("sub_question[") : -1]
+                if mode_name.startswith("sub_question[")
+                else None,
+            )
             for mode_name, fn in modes
         ]
         return list(await asyncio.gather(*tasks))
@@ -170,20 +243,43 @@ async def run_all(
     results: list[dict] = []
     for mode_name, fn in modes:
         print(f"evaluating {mode_name}...")
-        results.append(await eval_mode(cases, mode_name, fn, timeout_s=timeout_s))
+        results.append(
+            await eval_mode(
+                cases,
+                mode_name,
+                fn,
+                timeout_s=timeout_s,
+                generator=mode_name[len("sub_question[") : -1]
+                if mode_name.startswith("sub_question[")
+                else None,
+            )
+        )
     return results
 
 
 def print_report(results: list[dict], *, threshold: int) -> None:
-    print(f"\n{'mode':<16} {'Recall@5':<10} {'pass':<8} {'P95 ms':<10} timeouts")
-    print("-" * 58)
-    for row in results:
-        recall = f"{row['recall_at_5']:.0%}"
-        to = row.get("timeouts", 0)
-        print(
-            f"{row['mode']:<16} {recall:<10} {row['passed']}/{row['total']:<5} "
-            f"{row['p95_ms']:<10} {to}"
-        )
+    has_generator = any("generator" in row for row in results)
+    if has_generator:
+        print(f"\n{'mode':<24} {'generator':<12} {'Recall@5':<10} {'pass':<8} {'P95 ms':<10} timeouts")
+        print("-" * 72)
+        for row in results:
+            recall = f"{row['recall_at_5']:.0%}"
+            gen = row.get("generator", "-")
+            to = row.get("timeouts", 0)
+            print(
+                f"{row['mode']:<24} {gen:<12} {recall:<10} {row['passed']}/{row['total']:<5} "
+                f"{row['p95_ms']:<10} {to}"
+            )
+    else:
+        print(f"\n{'mode':<16} {'Recall@5':<10} {'pass':<8} {'P95 ms':<10} timeouts")
+        print("-" * 58)
+        for row in results:
+            recall = f"{row['recall_at_5']:.0%}"
+            to = row.get("timeouts", 0)
+            print(
+                f"{row['mode']:<16} {recall:<10} {row['passed']}/{row['total']:<5} "
+                f"{row['p95_ms']:<10} {to}"
+            )
 
     hybrid_rerank = next((r for r in results if r["mode"] == "hybrid_rerank"), None)
     if hybrid_rerank:
@@ -197,17 +293,36 @@ def print_report(results: list[dict], *, threshold: int) -> None:
 
 def write_comparison_markdown(results: list[dict], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    has_generator = any("generator" in row for row in results)
     lines = [
         f"# M2 模式对比报告 ({date.today().isoformat()})",
         "",
-        "| mode | Recall@5 | passed | P95 ms | timeouts |",
-        "|------|----------|--------|--------|----------|",
     ]
-    for row in results:
-        lines.append(
-            f"| {row['mode']} | {row['recall_at_5']:.0%} | "
-            f"{row['passed']}/{row['total']} | {row['p95_ms']} | {row.get('timeouts', 0)} |"
+    if has_generator:
+        lines.extend(
+            [
+                "| mode | generator | Recall@5 | passed | P95 ms | timeouts |",
+                "|------|-----------|----------|--------|--------|----------|",
+            ]
         )
+        for row in results:
+            gen = row.get("generator", "-")
+            lines.append(
+                f"| {row['mode']} | {gen} | {row['recall_at_5']:.0%} | "
+                f"{row['passed']}/{row['total']} | {row['p95_ms']} | {row.get('timeouts', 0)} |"
+            )
+    else:
+        lines.extend(
+            [
+                "| mode | Recall@5 | passed | P95 ms | timeouts |",
+                "|------|----------|--------|--------|----------|",
+            ]
+        )
+        for row in results:
+            lines.append(
+                f"| {row['mode']} | {row['recall_at_5']:.0%} | "
+                f"{row['passed']}/{row['total']} | {row['p95_ms']} | {row.get('timeouts', 0)} |"
+            )
     lines.append("")
     path.write_text("\n".join(lines), encoding="utf-8")
     print(f"对比报告: {path}")
@@ -262,6 +377,7 @@ async def run_benchmark(
     timeout_s: float | None = None,
     parallel: bool = False,
     limit: int | None = None,
+    subquestion_generator: str | None = None,
 ) -> list[dict]:
     """Programmatic entry for auto-tuning scripts (no stdout)."""
     return await run_all(
@@ -271,6 +387,7 @@ async def run_benchmark(
         timeout_s=timeout_s,
         parallel=parallel,
         limit=limit,
+        subquestion_generator=subquestion_generator,
     )
 
 
@@ -315,6 +432,12 @@ def main() -> None:
         default=0,
         help="evaluate first N questions only (0=all; use tiny golden for smoke)",
     )
+    parser.add_argument(
+        "--subquestion-generator",
+        type=str,
+        default="profile",
+        help="sub_question generator: profile (default), rule_based, llm, or both",
+    )
     args = parser.parse_args()
 
     try:
@@ -329,7 +452,12 @@ def main() -> None:
     timeout_s = args.timeout if args.timeout > 0 else None
     limit = args.limit if args.limit > 0 else None
     extended_modes = {name for name, _ in MODES_EXTENDED} - {name for name, _ in MODES_BASE}
-    use_extended = args.extended or (mode in extended_modes)
+    use_extended = args.extended or (mode in extended_modes) or mode.startswith("sub_question[")
+    try:
+        sq_gen = parse_subquestion_generator(args.subquestion_generator)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        sys.exit(2)
     try:
         results = asyncio.run(
             run_benchmark(
@@ -339,6 +467,7 @@ def main() -> None:
                 timeout_s=timeout_s,
                 parallel=args.parallel,
                 limit=limit,
+                subquestion_generator=sq_gen,
             )
         )
     except ValueError as exc:

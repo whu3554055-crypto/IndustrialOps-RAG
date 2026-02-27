@@ -128,9 +128,20 @@ class SubQuestionQueryEngine:
         )
 
 
+def build_subquestion_engine(*, generator: str | None = None) -> SubQuestionQueryEngine:
+    """按 profile 或显式 generator 构建引擎（verify / benchmark 用，不经 lru_cache）."""
+    cfg = get_retrieval_config()
+    if generator is not None:
+        merged = dict(cfg)
+        sq_cfg = dict(cfg.get("sub_question", {}))
+        sq_cfg["generator"] = generator
+        merged["sub_question"] = sq_cfg
+        return SubQuestionQueryEngine(question_generator=build_question_generator(merged))
+    return SubQuestionQueryEngine()
+
+
 @lru_cache
 def _engine_for_config_key(config_key: str) -> SubQuestionQueryEngine:
-    cfg = get_retrieval_config()
     return SubQuestionQueryEngine()
 
 
@@ -145,13 +156,29 @@ def clear_default_engine_cache() -> None:
     _engine_for_config_key.cache_clear()
 
 
-async def query_subquestion(query: str, top_k: int = 10) -> list[dict]:
+def _resolve_engine(generator: str | None = None) -> SubQuestionQueryEngine:
+    if generator is None:
+        return get_default_engine()
+    return build_subquestion_engine(generator=generator)
+
+
+async def query_subquestion(
+    query: str,
+    top_k: int = 10,
+    *,
+    generator: str | None = None,
+) -> list[dict]:
     """Gateway / mode_dispatch 入口 — 返回 chunk hits."""
-    result = await get_default_engine().retrieve(query, top_k=top_k)
+    result = await _resolve_engine(generator).retrieve(query, top_k=top_k)
     return [h.to_dict() for h in result.hits]
 
 
-async def query_subquestion_detail(query: str, top_k: int = 10) -> dict:
+async def query_subquestion_detail(
+    query: str,
+    top_k: int = 10,
+    *,
+    generator: str | None = None,
+) -> dict:
     """带 sub_questions 轨迹的完整结果（调试/日志）."""
-    result = await get_default_engine().retrieve(query, top_k=top_k)
+    result = await _resolve_engine(generator).retrieve(query, top_k=top_k)
     return result.to_dict()

@@ -1,0 +1,21 @@
+# C5 — 复合问句 search A/B 示例（默认勿启用）
+#
+# 用法：
+#   1. 离线验收：python scripts/compare_compound_ab.py
+#   2. 若 recommendation=consider_online_ab，人工 Review 后将本段合并进生产 profile
+#   3. 设置 enabled: true，并确保 persistence/demo 后端为 postgresql + init_db
+#
+# 约束：search hits-only；sub_question 合成仍走 /v1/chat，不在此实验变更。
+
+ab_test:
+  enabled: false
+  experiment_id: exp_subquestion_vs_hybrid_compound
+  traffic_split: 0.5
+  min_sample_size: 100
+  scope: search
+  version_a:
+    label: A
+    mode: hybrid_rerank
+  version_b:
+    label: B
+    mode: sub_question

@@ -308,6 +308,31 @@ flowchart TD
 | tree | `query_tree(top_k=5)` |
 | sub_question | `query_subquestion(top_k=5)` |
 
+**复合问句 golden**（`data/eval/m2_compound.jsonl`，模板 `m2_compound.jsonl.example`，≥24 题）：
+
+```powershell
+python scripts/verify_m2.py --extended --mode sub_question --golden data/eval/m2_compound.jsonl --subquestion-generator both
+python scripts/benchmark_subquestion.py --golden data/eval/m2_compound.jsonl
+python scripts/compare_compound_ab.py --golden data/eval/m2_compound.jsonl
+```
+
+**C5 复合问句 A/B（离线 → 可选在线）**
+
+| 步骤 | 命令 / 文件 |
+|------|-------------|
+| 离线对照 | `python scripts/compare_compound_ab.py` → `reports/compound_ab_compare.{json,md}` |
+| 在线实验模板 | `deploy/profiles/examples/ab-test-subquestion-compound.yaml`（`enabled: false`，人工 merge） |
+| 分析在线流量 | `python scripts/analyze_ab_test.py --experiment exp_subquestion_vs_hybrid_compound` |
+
+报告仅给 **建议**（`consider_online_ab` / `keep_default`）；改 profile / promote 须人工 Review（与 Phase 3 ADR 一致）。
+
+| `--subquestion-generator` | 作用 |
+|---------------------------|------|
+| `profile`（默认） | 读 profile `retrieval.sub_question.generator` |
+| `rule_based` | 强制规则拆问 |
+| `llm` | 强制 vLLM 拆问（需 vLLM；失败走 fallback） |
+| `both` | 同时评 `sub_question[rule_based]` 与 `sub_question[llm]`，报告含 generator 列 |
+
 ### 7.3 命令参数
 
 | 参数 | 默认 | 作用 |
@@ -315,6 +340,8 @@ flowchart TD
 | `--golden` | `data/eval/m2_golden.jsonl` | 评测集路径 |
 | `--output` | `reports/m2_verify.json` | JSON 报告 |
 | `--write-evolution` | off | 回填 `retrieval_modes.md` 指标表 |
+| `--limit` | 0 | 仅评前 N 题 |
+| `--subquestion-generator` | profile | sub_question 拆问：profile / rule_based / llm / both |
 
 ```powershell
 # 前提：Compose 中间件 + ingest（M1）+ Gateway 可选（verify 直连 Python API）

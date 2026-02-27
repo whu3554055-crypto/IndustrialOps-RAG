@@ -18,6 +18,18 @@
 | graph engine | | | | |
 | summary engine | | | | |
 | tree engine | | | | |
+| sub-question engine | | | | |
+
+**复合问句评测集**（Phase C）：
+
+| 文件 | 用途 |
+|------|------|
+| `data/eval/m2_compound.jsonl` | 复合问句 Recall@5（模板 `m2_compound.jsonl.example`，24 题） |
+| `data/eval/m2_compound_tiny.jsonl` | smoke（3 题） |
+
+- `verify_m2 --golden data/eval/m2_compound.jsonl --extended --subquestion-generator both`
+- `scripts/benchmark_subquestion.py` → `reports/subquestion_compare.json`（自研 vs LI 适配器，**非生产 dispatch**）
+- `scripts/compare_compound_ab.py` → `reports/compound_ab_compare.md`（**hybrid_rerank vs sub_question** 离线 A/B，C5）
 
 **数据来源（两文件，用途不同）：**
 

@@ -170,6 +170,7 @@ ab_test:
   version_b:
     label: B
     mode: graph
+  # C5 复合问句实验示例（勿直接改 enabled）：deploy/profiles/examples/ab-test-subquestion-compound.yaml
 
 demo:
   corpus_path: data/corpus/demo  # 脱敏演示语料（git 跟踪）；ingest 前 seed_demo_corpus.py

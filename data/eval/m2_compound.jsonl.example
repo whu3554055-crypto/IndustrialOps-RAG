@@ -1,0 +1,24 @@
+{"question": "P-101 出口压力正常范围是多少？还有 E01 故障怎么处理？", "doc_ids": ["samples/pump_p101_manual.md"], "category": "compound_parameter_fault"}
+{"question": "反应釜 R-201 什么情况下要按 ESD 紧急停车？另外 F201-02 搅拌电流高可能是什么原因？", "doc_ids": ["samples/reactor_r201_sop.md"], "category": "compound_procedure_trouble"}
+{"question": "空压站 ALM-101 排气温度过高怎么处理？同时 SA-01 螺杆空压机排气量是多少？", "doc_ids": ["samples/compressor_sa01_fault_codes.md"], "category": "compound_fault_parameter"}
+{"question": "E-301 管壳式换热器设计换热面积是多少？还有检漏发现微漏点如何处理？", "doc_ids": ["samples/heat_exchanger_e301_manual.md"], "category": "compound_parameter_procedure"}
+{"question": "CV-110 皮带机启动前必须确认哪些联锁？另外 B201 跑偏报警怎么处理？", "doc_ids": ["samples/conveyor_cv110_sop.md"], "category": "compound_procedure_fault"}
+{"question": "E01 故障会影响哪台离心泵？还有 P-101 出口压力正常范围是多少？", "doc_ids": ["samples/pump_p101_manual.md"], "category": "compound_relation_parameter"}
+{"question": "ALM-101 告警关联哪台螺杆空压机？另外排气温度过高怎么处理？", "doc_ids": ["samples/compressor_sa01_fault_codes.md"], "category": "compound_relation_fault"}
+{"question": "B201 跑偏告警与哪条皮带输送机相关？还有跑偏报警怎么处理？", "doc_ids": ["samples/conveyor_cv110_sop.md"], "category": "compound_relation_fault"}
+{"question": "F201-02 异常与哪台反应釜设备相关？另外搅拌电流高可能是什么原因？", "doc_ids": ["samples/reactor_r201_sop.md"], "category": "compound_relation_trouble"}
+{"question": "P-101 设备与 E01 故障码是什么关系？还有 E01 怎么处理？", "doc_ids": ["samples/pump_p101_manual.md"], "category": "compound_relation_fault"}
+{"question": "R-201 反应釜与 E-301 换热器是否在同一装置区？另外 E-301 设计换热面积是多少？", "doc_ids": ["samples/reactor_r201_sop.md", "samples/heat_exchanger_e301_manual.md"], "category": "compound_multi_device"}
+{"question": "P-101 故障码 E01 怎么处理？还有 R-201 反应釜 ESD 紧急停车条件是什么？", "doc_ids": ["samples/pump_p101_manual.md", "samples/reactor_r201_sop.md"], "category": "compound_multi_device"}
+{"question": "SA-01 螺杆空压机排气量是多少？同时 ALM-101 告警怎么处理？", "doc_ids": ["samples/compressor_sa01_fault_codes.md"], "category": "compound_parameter_fault"}
+{"question": "E-301 检漏发现微漏点如何处理？另外设计换热面积是多少？", "doc_ids": ["samples/heat_exchanger_e301_manual.md"], "category": "compound_procedure_parameter"}
+{"question": "CV-110 与 B201 告警之间有什么关联？还有启动前必须确认哪些联锁？", "doc_ids": ["samples/conveyor_cv110_sop.md"], "category": "compound_relation_procedure"}
+{"question": "1. 设备参数——主要内容是什么？另外还有哪些告警代码？", "doc_ids": ["samples/compressor_sa01_fault_codes.md"], "category": "compound_section"}
+{"question": "反应釜 R-201 什么情况下 ESD 停车？以及 F201-02 搅拌电流异常原因？", "doc_ids": ["samples/reactor_r201_sop.md"], "category": "compound_procedure_trouble"}
+{"question": "P-101 出口压力范围；故障码 E01 怎么处理", "doc_ids": ["samples/pump_p101_manual.md"], "category": "compound_parameter_fault"}
+{"question": "空压站 SA-01 排气量是多少？以及 ALM-101 与哪台设备关联？", "doc_ids": ["samples/compressor_sa01_fault_codes.md"], "category": "compound_parameter_relation"}
+{"question": "E-301 换热器手册结构在哪一章？还有设计换热面积参数？", "doc_ids": ["samples/heat_exchanger_e301_manual.md"], "category": "compound_tree_parameter"}
+{"question": "CV-110 皮带机操作概述是什么？另外 B201 跑偏报警怎么处理？", "doc_ids": ["samples/conveyor_cv110_sop.md"], "category": "compound_summary_fault"}
+{"question": "P-101 和 E01 的部件关联有哪些？同时出口压力正常范围是多少？", "doc_ids": ["samples/pump_p101_manual.md"], "category": "compound_relation_parameter"}
+{"question": "压缩机故障码 ALM-101 现场如何处置？并且 SA-01 设备排气量参数？", "doc_ids": ["samples/compressor_sa01_fault_codes.md"], "category": "compound_fault_parameter"}
+{"question": "R-201 规程中 ESD 紧急停车条件？还有 F201-02 告警怎么处理？", "doc_ids": ["samples/reactor_r201_sop.md"], "category": "compound_procedure_fault"}
