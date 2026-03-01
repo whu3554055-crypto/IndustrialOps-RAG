@@ -23,19 +23,25 @@
 
 ## 开发计划
 
-详见 [subquestion-complete-roadmap.md](./subquestion-complete-roadmap.md)。
+详见 [subquestion-complete-roadmap.md](./subquestion-complete-roadmap.md)（Phase A–C + G6 + C5 已完成）。
 
-## 本地开发
+## 本地验收（无 GPU）
 
 ```powershell
 git checkout feature/subquestion-complete
-pytest tests/test_subquestion_engine.py -q
-python scripts/verify_m2.py --extended --mode sub_question
+python scripts/verify_subquestion.py
+pytest tests/test_subquestion_engine.py tests/test_compound_compare.py tests/test_li_benchmark.py -q
+python scripts/verify_m2.py --extended --mode sub_question --golden data/eval/m2_compound_tiny.jsonl
+python pipelines/evaluation/run_ragas.py --dry-run --golden data/eval/golden_compound_tiny.jsonl
 ```
 
-LLM 路径（Phase A1 已完成，需 vLLM）：
+## Live 路径（须 vLLM + ingest，用户代劳）
 
 ```powershell
-# profile: retrieval.sub_question.generator: llm
-python scripts/verify_m2.py --extended --mode sub_question
+# 检索 Recall
+python scripts/verify_m2.py --extended --golden data/eval/m2_compound.jsonl --subquestion-generator both
+python scripts/compare_compound_ab.py
+
+# RAGAS 复合问句（SQ-C）
+python pipelines/evaluation/run_ragas.py --golden data/eval/golden_compound.jsonl.example --gateway http://localhost:8080 --retrieval-mode sub_question --limit 3
 ```

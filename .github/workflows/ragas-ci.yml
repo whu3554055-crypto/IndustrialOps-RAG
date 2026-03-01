@@ -34,6 +34,16 @@ jobs:
             --limit 3 \
             --output reports/ragas_m7_ci_dryrun.json
 
+      - name: RAGAS dry-run (compound golden, SQ-C scaffold)
+        run: |
+          python pipelines/evaluation/run_ragas.py \
+            --dry-run \
+            --golden data/eval/golden_compound_tiny.jsonl \
+            --output reports/ragas_compound_ci_dryrun.json
+
+      - name: SubQuestion verify
+        run: python scripts/verify_subquestion.py
+
       - name: M6 verify
         run: python scripts/verify_m6.py --write-report
 
@@ -41,7 +51,7 @@ jobs:
         run: python scripts/verify_m7.py --write-report
 
       - name: Unit tests
-        run: pytest tests/test_ragas_m6.py tests/test_m7_feedback.py tests/test_golden_m7_m1_align.py tests/test_post_m7_landing.py tests/test_post_m7_extended.py tests/test_v02_graph.py -q
+        run: pytest tests/test_ragas_m6.py tests/test_m7_feedback.py tests/test_golden_m7_m1_align.py tests/test_post_m7_landing.py tests/test_post_m7_extended.py tests/test_v02_graph.py tests/test_subquestion_engine.py tests/test_compound_compare.py tests/test_li_benchmark.py -q
 
       - name: Code complete verify
         run: python scripts/verify_code_complete.py

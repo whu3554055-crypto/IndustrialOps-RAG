@@ -17,11 +17,15 @@
 | `LLMQuestionGenerator` | ✅ vLLM + JSON 解析 |
 | `FallbackQuestionGenerator` | ✅ LLM 失败 → rule_based |
 | `QuestionGenerator.generate` async | ✅ |
-| `ResponseSynthesizer` | ⬜ 未实现 |
+| `ResponseSynthesizer` | ✅ `subquestion/synthesizer.py` |
 | Gateway `mode=sub_question` | ✅ |
-| `query_subquestion_detail`（调试） | ✅ 代码内，未暴露 HTTP |
+| `query_subquestion_detail`（调试） | ✅ search `include_trace` + chat/query 轨迹 |
 | `verify_m2 --extended --mode sub_question` | ✅ rule-based |
 | Profile `retrieval.sub_question.*` | ✅ |
+| **`/v1/chat` `retrieval_mode=sub_question`** | ✅ |
+| **`POST /v1/query`** | ✅ |
+| Phase C 评测 + C5 A/B | ✅ |
+| G6 RAGAS compound 子集 | ✅ `golden_compound.jsonl.example`（live 用户代劳） |
 
 ---
 
@@ -36,7 +40,7 @@
 | G3 | 「检索 + 合成」完整 QueryEngine 语义 | **`/v1/chat`**（主）+ 可选 **`/v1/query`** 返回 answer + citations + hits |
 | G4 | 可观测：子问题轨迹进日志 | retrieval_log / chat 响应含 `sub_questions`；search **仅**可选调试字段（无 LLM） |
 | G5 | 官方 LI SubQuestion **对照 benchmark** | `scripts/benchmark_subquestion.py` 或 pytest 对比 recall/延迟 |
-| G6 | M6 复合问句评测集 | golden + RAGAS 子集（用户代劳跑 live） |
+| G6 | M6 复合问句评测集 | ✅ `golden_compound.jsonl.example` + dry-run；live RAGAS 用户代劳 |
 
 ### 2.2 非目标
 
@@ -155,7 +159,7 @@ sub_question:
 |--------|------|----------|
 | **SQ-A** | Phase A 完成 | 新对话：`按 subquestion roadmap 验收 Phase A` |
 | **SQ-B** | Phase B 合成 | ✅ `/v1/chat` + `/v1/query`；search hits-only |
-| **SQ-C** | M6 live RAGAS 复合问句 | **用户代劳** vLLM + ingest（COLLABORATION §3） |
+| **SQ-C** | M6 live RAGAS 复合问句 | **用户代劳** vLLM + ingest（见下方命令） |
 
 ---
 
@@ -178,6 +182,15 @@ sub_question:
 4. C1 + C2（golden + verify 分 generator）  
 5. B1 → B3（合成 + `/v1/chat`）  
 6. C3（LI benchmark）  
-7. B4 + B5 + C5（Agent 策略、可选 `/v1/query`、A/B）
+7. B4 + B5 + C5（Agent 策略、可选 `/v1/query`、A/B）  
+8. G6 + `verify_subquestion` + `/v1/chat` `retrieval_mode` 接线 ✅
 
-<!-- 状态更新：完成某 Step 后在 §1 表与上文打 ✅ -->
+**SQ-C live RAGAS（须 vLLM + ingest，用户本地执行）：**
+
+```powershell
+python scripts/verify_subquestion.py
+python pipelines/evaluation/run_ragas.py --dry-run --golden data/eval/golden_compound_tiny.jsonl
+# live（Gateway + vLLM 就绪后）：
+python pipelines/evaluation/run_ragas.py --golden data/eval/golden_compound.jsonl.example --gateway http://localhost:8080 --retrieval-mode sub_question --limit 3
+python pipelines/evaluation/run_ragas.py --golden data/eval/golden_compound.jsonl.example --gateway http://localhost:8080 --endpoint query --limit 3
+```

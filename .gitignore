@@ -42,6 +42,8 @@ data/eval/*.jsonl
 !data/eval/m2_golden_tiny.jsonl
 !data/eval/m2_compound.jsonl.example
 !data/eval/m2_compound_tiny.jsonl
+!data/eval/golden_compound.jsonl.example
+!data/eval/golden_compound_tiny.jsonl
 !data/eval/.gitkeep
 
 models/

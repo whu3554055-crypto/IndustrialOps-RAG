@@ -134,6 +134,7 @@ evaluation:
     judge_model: Qwen/Qwen2.5-7B-Instruct-AWQ
   ragas:
     golden_path: data/eval/golden.jsonl
+    compound_golden_path: data/eval/golden_compound.jsonl  # 模板 golden_compound.jsonl.example
     gateway_url: http://localhost:8080
     judge_base_url: http://localhost:8000/v1  # RAGAS judge；默认同 vLLM OpenAI API
     judge_model: Qwen/Qwen2.5-7B-Instruct-AWQ

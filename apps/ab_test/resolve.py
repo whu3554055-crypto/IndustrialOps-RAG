@@ -4,10 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from apps.ab_test.config import load_ab_test_config
-from apps.ab_test.router import select_variant
-from apps.config import load_profile
-
 DEFAULT_MODE = "hybrid_rerank"
 
 
@@ -19,6 +15,10 @@ class ResolvedRetrieval:
 
 
 def resolve_retrieval_mode(session_id: str) -> ResolvedRetrieval:
+    from apps.ab_test.config import load_ab_test_config
+    from apps.ab_test.router import select_variant
+    from apps.config import load_profile
+
     ab = load_ab_test_config()
     if ab and ab.active_for_chat():
         sel = select_variant(session_id, ab)

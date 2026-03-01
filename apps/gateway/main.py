@@ -36,6 +36,10 @@ app = FastAPI(
 class ChatRequest(BaseModel):
     session_id: str = Field(..., description="会话 ID")
     query: str = Field(..., min_length=1, description="用户问题（中文）")
+    retrieval_mode: str | None = Field(
+        None,
+        description="可选检索模式；A/B 开启时被实验 variant 覆盖",
+    )
 
 
 class ChatResponse(BaseModel):
@@ -210,7 +214,11 @@ async def chat(req: ChatRequest) -> ChatResponse:
         raise HTTPException(status_code=429, detail="rate limit exceeded")
     inc_chat_request()
     try:
-        result = await run_agentic_rag(req.session_id, req.query)
+        result = await run_agentic_rag(
+            req.session_id,
+            req.query,
+            retrieval_mode=req.retrieval_mode,
+        )
     except Exception as exc:
         raise HTTPException(
             status_code=503,

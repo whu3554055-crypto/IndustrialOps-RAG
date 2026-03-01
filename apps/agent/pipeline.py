@@ -163,6 +163,7 @@ async def run_agentic_rag(
     query: str,
     *,
     history: list[dict] | None = None,
+    retrieval_mode: str | None = None,
 ) -> PipelineResult:
     cfg = _agent_config()
     max_turns = int(cfg.get("max_history_turns", 3))
@@ -173,8 +174,9 @@ async def run_agentic_rag(
     log_id = str(uuid.uuid4())
     resolved = resolve_retrieval_mode(session_id)
     in_ab_experiment = bool(resolved.experiment_id)
-    retrieval_mode = _resolve_effective_mode(
-        resolved.mode,
+    base_mode = resolved.mode if in_ab_experiment else (retrieval_mode or resolved.mode)
+    effective_mode = _resolve_effective_mode(
+        base_mode,
         query,
         cfg,
         in_ab_experiment=in_ab_experiment,
@@ -190,7 +192,7 @@ async def run_agentic_rag(
     search_query = await rewrite_query(query, session_history)
     t0 = time.perf_counter()
 
-    if retrieval_mode == "sub_question":
+    if effective_mode == "sub_question":
         (
             answer,
             hits,
@@ -204,7 +206,7 @@ async def run_agentic_rag(
             "sub_answers": sub_answers,
         }
     else:
-        hits = await _retrieve(search_query, cfg, mode=retrieval_mode)
+        hits = await _retrieve(search_query, cfg, mode=effective_mode)
         answer = ""
 
     retrieve_latency_ms += (time.perf_counter() - t0) * 1000.0
@@ -219,7 +221,7 @@ async def run_agentic_rag(
             refused=refused,
             experiment_id=experiment_id,
             variant=variant,
-            retrieval_mode=retrieval_mode,
+            retrieval_mode=effective_mode,
             sub_question_trace=trace_payload,
         )
         if experiment_id and variant:
@@ -228,7 +230,7 @@ async def run_agentic_rag(
                 experiment_id=experiment_id,
                 session_id=session_id,
                 variant=variant,
-                retrieval_mode=retrieval_mode,
+                retrieval_mode=effective_mode,
                 scope="chat",
                 latency_ms=retrieve_latency_ms,
             )
@@ -243,7 +245,7 @@ async def run_agentic_rag(
             refused=True,
             experiment_id=experiment_id,
             variant=variant,
-            retrieval_mode=retrieval_mode,
+            retrieval_mode=effective_mode,
             sub_questions=sub_questions,
             sub_answers=sub_answers,
             subquestion_generator=subquestion_generator,
@@ -252,7 +254,7 @@ async def run_agentic_rag(
     if refuse_on_low_confidence and not check_retrieval_confidence(hits):
         return _refuse(hits if hits else [])
 
-    if retrieval_mode != "sub_question":
+    if effective_mode != "sub_question":
         answer = await _generate_answer(query, session_history, hits, cfg)
 
     check_context = format_context(hits, max_chars_per_chunk=_max_chars_per_chunk(cfg))
@@ -262,7 +264,7 @@ async def run_agentic_rag(
         if not supported:
             expanded_query = await rewrite_query(query, session_history, expand=True)
             t1 = time.perf_counter()
-            if retrieval_mode == "sub_question":
+            if effective_mode == "sub_question":
                 (
                     answer_retry,
                     hits_retry,
@@ -276,11 +278,11 @@ async def run_agentic_rag(
                     "sub_answers": sub_answers,
                 }
             else:
-                hits_retry = await _retrieve(expanded_query, cfg, mode=retrieval_mode)
+                hits_retry = await _retrieve(expanded_query, cfg, mode=effective_mode)
                 answer_retry = ""
             retrieve_latency_ms += (time.perf_counter() - t1) * 1000.0
             if hits_retry and check_retrieval_confidence(hits_retry):
-                if retrieval_mode != "sub_question":
+                if effective_mode != "sub_question":
                     answer_retry = await _generate_answer(
                         query, session_history, hits_retry, cfg
                     )
@@ -304,7 +306,7 @@ async def run_agentic_rag(
         refused=False,
         experiment_id=experiment_id,
         variant=variant,
-        retrieval_mode=retrieval_mode,
+        retrieval_mode=effective_mode,
         sub_questions=sub_questions,
         sub_answers=sub_answers,
         subquestion_generator=subquestion_generator,

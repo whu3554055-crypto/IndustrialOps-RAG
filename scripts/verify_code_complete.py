@@ -28,6 +28,11 @@ CHECKS = [
     ("mode dispatch", ROOT / "apps" / "retrieval" / "mode_dispatch.py"),
     ("ab resolve", ROOT / "apps" / "ab_test" / "resolve.py"),
     ("analyze ab test", ROOT / "scripts" / "analyze_ab_test.py"),
+    ("subquestion engine", ROOT / "apps" / "retrieval" / "llamaindex" / "subquestion" / "engine.py"),
+    ("m2 compound golden", ROOT / "data" / "eval" / "m2_compound.jsonl.example"),
+    ("golden compound RAGAS", ROOT / "data" / "eval" / "golden_compound.jsonl.example"),
+    ("compare compound ab", ROOT / "scripts" / "compare_compound_ab.py"),
+    ("verify subquestion", ROOT / "scripts" / "verify_subquestion.py"),
 ]
 
 

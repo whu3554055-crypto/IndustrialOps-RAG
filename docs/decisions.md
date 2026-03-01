@@ -38,5 +38,6 @@
 | 2026-06-03 | SubQuestion 开发独立分支 | `3d09b32` 起置于 `feature/subquestion-complete`；`feature/auto-evaluation-optimization` 不含该提交 |
 | 2026-06-03 | SubQuestion API：Retrieve 与 Generate 分离 | `/v1/search` 永远 hits-only（含 `mode=sub_question`）；LLM 合成仅 Query 层：`/v1/chat` + `retrieval_mode=sub_question`；可选 `/v1/query` 轻量 RAG；禁止 search+synthesize 与 `/v1/subquestion/*` 对外路径 |
 | 2026-06-03 | 复合问句 A/B 离线优先、不自动 promote | C5：`compare_compound_ab.py` 在 `m2_compound` golden 上对照 hybrid_rerank vs sub_question；在线实验用 profile 示例 `ab-test-subquestion-compound.yaml`，与 Phase 3 一致须人工改 profile |
+| 2026-06-03 | SubQuestion 分支收尾 G6 | `golden_compound.jsonl.example` + `run_ragas --retrieval-mode/--endpoint`；`/v1/chat` 支持 `retrieval_mode`；`verify_subquestion.py` 脚手架验收 |
 
 <!-- 新决策追加在表末 -->

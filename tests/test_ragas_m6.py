@@ -26,6 +26,15 @@ def test_dry_run_deterministic() -> None:
     assert a["sample_count"] == len(rows)
 
 
+def test_dry_run_compound_golden() -> None:
+    path = ROOT / "data" / "eval" / "golden_compound_tiny.jsonl"
+    rows = load_golden(path)
+    body = dry_run_report(rows)
+    assert body["sample_count"] == len(rows)
+    assert all("question" in r for r in rows)
+    assert all(r.get("ground_truth") for r in rows)
+
+
 def test_dry_run_cli(tmp_path: Path) -> None:
     import subprocess
     import sys

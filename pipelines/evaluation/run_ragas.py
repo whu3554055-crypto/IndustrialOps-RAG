@@ -74,15 +74,31 @@ def dry_run_report(golden: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-async def fetch_rag_samples(gateway_url: str, golden: list[dict[str, Any]]) -> list[dict[str, Any]]:
+async def fetch_rag_samples(
+    gateway_url: str,
+    golden: list[dict[str, Any]],
+    *,
+    endpoint: str = "chat",
+    retrieval_mode: str | None = None,
+) -> list[dict[str, Any]]:
     samples: list[dict[str, Any]] = []
+    base = gateway_url.rstrip("/")
     async with httpx.AsyncClient(timeout=120.0) as client:
         for row in golden:
-            session_id = f"ragas-{uuid.uuid4().hex[:8]}"
-            resp = await client.post(
-                f"{gateway_url.rstrip('/')}/v1/chat",
-                json={"session_id": session_id, "query": row["question"]},
-            )
+            if endpoint == "query":
+                resp = await client.post(
+                    f"{base}/v1/query",
+                    json={"query": row["question"], "top_k": 5},
+                )
+            else:
+                session_id = f"ragas-{uuid.uuid4().hex[:8]}"
+                payload: dict[str, Any] = {
+                    "session_id": session_id,
+                    "query": row["question"],
+                }
+                if retrieval_mode:
+                    payload["retrieval_mode"] = retrieval_mode
+                resp = await client.post(f"{base}/v1/chat", json=payload)
             resp.raise_for_status()
             data = resp.json()
             contexts = [
@@ -143,8 +159,19 @@ def evaluate_with_ragas(samples: list[dict[str, Any]]) -> dict[str, float]:
     return {m: round(float(result[m]), 3) for m in METRICS if m in result}
 
 
-async def run_live(gateway_url: str, golden: list[dict[str, Any]]) -> dict[str, Any]:
-    samples = await fetch_rag_samples(gateway_url, golden)
+async def run_live(
+    gateway_url: str,
+    golden: list[dict[str, Any]],
+    *,
+    endpoint: str = "chat",
+    retrieval_mode: str | None = None,
+) -> dict[str, Any]:
+    samples = await fetch_rag_samples(
+        gateway_url,
+        golden,
+        endpoint=endpoint,
+        retrieval_mode=retrieval_mode,
+    )
     try:
         aggregate = evaluate_with_ragas(samples)
         mode = "ragas"
@@ -165,6 +192,8 @@ async def run_live(gateway_url: str, golden: list[dict[str, Any]]) -> dict[str, 
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "sample_count": len(samples),
         "gateway": gateway_url,
+        "endpoint": endpoint,
+        "retrieval_mode": retrieval_mode,
         "note": note,
         **aggregate,
         "per_question": [
@@ -193,7 +222,12 @@ async def async_main(args: argparse.Namespace) -> int:
         gateway = args.gateway or load_profile().get("evaluation", {}).get("ragas", {}).get(
             "gateway_url", "http://localhost:8080"
         )
-        body = await run_live(gateway, golden)
+        body = await run_live(
+            gateway,
+            golden,
+            endpoint=args.endpoint,
+            retrieval_mode=args.retrieval_mode,
+        )
 
     out = Path(args.output)
     write_report(body, out)
@@ -214,6 +248,17 @@ def main() -> None:
         type=int,
         default=None,
         help="仅评测前 N 条 golden（演示/省本机时间；CI 常用 3）",
+    )
+    parser.add_argument(
+        "--endpoint",
+        choices=("chat", "query"),
+        default="chat",
+        help="live 模式调用的 Gateway 端点（query=SubQuestion 轻量 RAG）",
+    )
+    parser.add_argument(
+        "--retrieval-mode",
+        default=None,
+        help="live + chat 时传入 retrieval_mode（如 sub_question）",
     )
     args = parser.parse_args()
 

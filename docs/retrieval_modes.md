@@ -24,8 +24,9 @@
 
 | 文件 | 用途 |
 |------|------|
-| `data/eval/m2_compound.jsonl` | 复合问句 Recall@5（模板 `m2_compound.jsonl.example`，24 题） |
-| `data/eval/m2_compound_tiny.jsonl` | smoke（3 题） |
+| `data/eval/m2_compound.jsonl` | 检索 Recall@5（模板 `m2_compound.jsonl.example`，24 题） |
+| `data/eval/golden_compound.jsonl` | RAGAS 复合问句（模板 `golden_compound.jsonl.example`，8 题，含 `ground_truth`） |
+| `data/eval/m2_compound_tiny.jsonl` / `golden_compound_tiny.jsonl` | smoke（3 题） |
 
 - `verify_m2 --golden data/eval/m2_compound.jsonl --extended --subquestion-generator both`
 - `scripts/benchmark_subquestion.py` → `reports/subquestion_compare.json`（自研 vs LI 适配器，**非生产 dispatch**）
