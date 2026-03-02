@@ -47,7 +47,7 @@ flowchart TB
 | 路径 | 何时用 | M0 验收 |
 |------|--------|---------|
 | **Compose + Docker vLLM** | 日常 M1–M4 开发、16GB RAM | `verify_m0.py` Compose + 可选 vLLM |
-| **k3d + Helm** | 面试演示、K8s 学习、生产对齐 | `kubectl get pods` 分时全绿 |
+| **k3d + Helm** | 技术演示、K8s 学习、生产对齐 | `kubectl get pods` 分时全绿 |
 
 ---
 

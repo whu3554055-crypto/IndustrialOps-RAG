@@ -187,7 +187,7 @@ GitHub Actions：`.github/workflows/ragas-ci.yml`
 
 | 方式 | 适用 | git |
 |------|------|-----|
-| 继续用 `demo` | 面试/开源演示 | 跟踪 **5 篇** 脱敏 MD（git 公开样例） |
+| 继续用 `demo` | 技术演示/开源演示 | 跟踪 **5 篇** 脱敏 MD（git 公开样例） |
 | 替换 `demo` 内文件 | 脱敏后仍可当公开样例 | 可提交（须过 §5 清单） |
 | `data/corpus/business/` | 真实脱敏语料 | **默认 gitignore**，仅 README 进库 |
 

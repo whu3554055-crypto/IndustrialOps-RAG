@@ -2,7 +2,7 @@
 
 | 日期 | 决策 | 原因 |
 |------|------|------|
-| 2026-05-31 | 项目名 IndustrialOps-RAG | 工业运维场景，国内岗位高频 |
+| 2026-05-31 | 项目名 IndustrialOps-RAG | 工业运维场景，技术实践常见 |
 | 2026-05-31 | 向量库选 Milvus | 技术栈常见；生产扩展路径清晰 |
 | 2026-05-31 | BM25 用 OpenSearch | 与 Milvus 并列工业常见组合；单节点 `discovery.type=single-node` |
 | 2026-05-31 | 主 LLM Qwen2.5-7B-AWQ | 覆盖 Qwen；4bit 在 6GB 上勉强推理 |

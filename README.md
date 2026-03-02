@@ -14,7 +14,7 @@
 | [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) | **总方案（必读）** |
 | [docs/COLLABORATION.md](docs/COLLABORATION.md) | **对话 token 拍板** + 用户代劳命令 + 省 token 提醒 |
 | [docs/architecture.md](docs/architecture.md) | 架构与时序 |
-| [docs/job-requirements-mapping.md](docs/job-requirements-mapping.md) | 岗位映射 |
+| [docs/job-requirements-mapping.md](docs/job-requirements-mapping.md) | 技术栈映射 |
 | [deploy/profiles/dev-single-node.yaml](deploy/profiles/dev-single-node.yaml) | 单机资源与启服顺序 |
 
 ## 仓库结构
